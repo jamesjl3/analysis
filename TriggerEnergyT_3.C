@@ -6,6 +6,8 @@
 #include <TCanvas.h>
 #include <TChain.h>
 #include <TMath.h>
+#include <TH2F.h>
+
 void saveHistogramAsPNG(TH2F *histogram, const char *filename) {
   TCanvas *canvas = new TCanvas("canvas", "Canvas");
   histogram->Draw("COLZ");
@@ -51,16 +53,20 @@ void TriggerEnergyT_3() {
   chain_jet04.SetBranchAddress("cluster_towereta", &b_cluster_towereta);
   chain_jet04.SetBranchAddress("cluster_towerphi", &b_cluster_towerphi);
   chain_jet04.SetBranchAddress("zvertex", &m_vertex);
-
+  
   // Create histograms for different energy ranges
-  TH2F *hist_deltaR_transverseEnergy_0_2 = new TH2F("hist_deltaR_transverseEnergy_0_2", "Delta R vs Transverse Energy (0 < E < 2)", 360, 0, 3.6, 100, 0, 5);
-  TH2F *hist_deltaR_transverseEnergy_2_4 = new TH2F("hist_deltaR_transverseEnergy_2_4", "Delta R vs Transverse Energy (2 < E < 4)", 360, 0, 3.6, 100, 0, 5);
-  TH2F *hist_deltaR_transverseEnergy_4_6 = new TH2F("hist_deltaR_transverseEnergy_4_6", "Delta R vs Transverse Energy (4 < E < 6)", 360, 0, 3.6, 100, 0, 5);
-  TH2F *hist_deltaR_transverseEnergy_6_8 = new TH2F("hist_deltaR_transverseEnergy_6_8", "Delta R vs Transverse Energy (6 < E < 8)", 360, 0, 3.6, 100, 0, 5);
-  TH2F *hist_deltaR_transverseEnergy_8_plus = new TH2F("hist_deltaR_transverseEnergy_8_plus", "Delta R vs Transverse Energy (E > 8)", 360, 0, 3.6, 100, 0, 5);
-  TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F ("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy", 360, 0 ,3.6, 100, 0, 5);
+  TH2F *hist_deltaR_transverseEnergy_0_2 = new TH2F("hist_deltaR_transverseEnergy_0_2", "Delta R vs Transverse Energy (0 < E < 2)", 50, 0, .5, 500, 0, 5);
+  TH2F *hist_deltaR_transverseEnergy_2_4 = new TH2F("hist_deltaR_transverseEnergy_2_4", "Delta R vs Transverse Energy (2 < E < 4)", 50, 0, .5, 500, 0, 5);
+  TH2F *hist_deltaR_transverseEnergy_4_6 = new TH2F("hist_deltaR_transverseEnergy_4_6", "Delta R vs Transverse Energy (4 < E < 6)", 50, 0, .5, 500, 0, 5);
+  TH2F *hist_deltaR_transverseEnergy_6_8 = new TH2F("hist_deltaR_transverseEnergy_6_8", "Delta R vs Transverse Energy (6 < E < 8)", 50, 0, .5, 500, 0, 5);
+  TH2F *hist_deltaR_transverseEnergy_8_plus = new TH2F("hist_deltaR_transverseEnergy_8_plus", "Delta R vs Transverse Energy (E > 8)", 50, 0, .5, 500, 0, 5);
+  TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F ("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy", 50, 0 ,0.5, 500, 0, 5);
+ 
   int trigger_bit = 17; // Adjust this index as needed
   int nEntries = chain_jet04.GetEntries();
+
+  double jet_radius = 0.4;  // Define jet size radius  
+
 
   for (int ev = 0; ev < nEntries; ++ev) {
     chain_jet04.GetEntry(ev);
@@ -110,77 +116,106 @@ void TriggerEnergyT_3() {
           }
         }
       }
-    }
+    
 
-    // Skip filling histograms and calculations if maxEnergy is 0
-    if (maxEnergy == 0) {
-      continue;
-    }
-    // Debug: Print maxEnergy before determining histogram to fill
-    //    std::cout << "maxEnergy: " << maxEnergy << std::endl;
-    // Determine which histogram to fill based on maxEnergy
+      // Skip filling histograms and calculations if maxEnergy is 0
+      if (maxEnergy == 0) {
+	continue;
+      }
+      // Debug: Print maxEnergy before determining histogram to fill
+      //    std::cout << "maxEnergy: " << maxEnergy << std::endl;
+      // Determine which histogram to fill based on maxEnergy
+      
+      TH2F *hist_to_fill = nullptr;
+      // Fill the selected histogram
+      if (hist_to_fill) {
+	for (int i = 0; i < b_cluster_towere->size(); ++i) {
+	  int eta_idx = static_cast<int>(b_cluster_towereta->at(i));
+	  int phi_idx = static_cast<int>(b_cluster_towerphi->at(i));
+	  double energy_i = b_cluster_towere->at(i);
+	  
+	  // Map eta and phi indices to actual values
+	  double eta_i = eta_map[eta_idx];
+	  double phi_i = phi_idx * (2 * M_PI / 256);
+	  
+	  // Validate eta and phi values
+	  if (std::isnan(eta_i) || std::isnan(phi_i) || eta_i < -1.1 || eta_i > 1.1 || phi_i < 0 || phi_i > 2 * M_PI) {
+	    continue; // Skip invalid values
+	  }
+	  
+	  // Calculate delta R
+	  double dPhi = maxPhi - phi_i;
+	  if (dPhi > +M_PI) dPhi -= 2 * M_PI;
+	  if (dPhi < -M_PI) dPhi += 2 * M_PI;
+	  double dEta = maxEta - eta_i;
+	  double deltaR = std::sqrt(dPhi * dPhi + dEta * dEta);
+	  
+	  //	std::cout << "dPhi: " << dPhi << std::endl;
+	  //	std::cout << "dEta: " << dEta << std::endl;
+	  if (deltaR < jet_radius) {
+	    double transverseEnergy = energy_i * std::sin(std::atan2(std::sqrt(dEta * dEta + dPhi * dPhi), maxEta));
+	  
+	    // Store delta R and transverse energy values
+	    deltaR_values.push_back(deltaR);
+	    transverse_energy_values.push_back(transverseEnergy);
 
-    TH2F *hist_to_fill = nullptr;
-    if (maxEnergy > 0 && maxEnergy <= 2) {
-      hist_to_fill = hist_deltaR_transverseEnergy_0_2;
-    } else if (maxEnergy > 2 && maxEnergy <= 4) {
-      hist_to_fill = hist_deltaR_transverseEnergy_2_4;
-    } else if (maxEnergy > 4 && maxEnergy <= 6) {
-      hist_to_fill = hist_deltaR_transverseEnergy_4_6;
-    } else if (maxEnergy > 6 && maxEnergy <= 8) {
-      hist_to_fill = hist_deltaR_transverseEnergy_6_8;
-    } else if (maxEnergy > 8) {
-      hist_to_fill = hist_deltaR_transverseEnergy_8_plus;
-    }
-
-    // Fill the selected histogram
-    if (hist_to_fill) {
-      for (int i = 0; i < b_cluster_towere->size(); ++i) {
-        int eta_idx = static_cast<int>(b_cluster_towereta->at(i));
-        int phi_idx = static_cast<int>(b_cluster_towerphi->at(i));
-        double energy_i = b_cluster_towere->at(i);
-
-        // Map eta and phi indices to actual values
-        double eta_i = eta_map[eta_idx];
-        double phi_i = phi_idx * (2 * M_PI / 256);
-
-	// Validate eta and phi values
-	if (std::isnan(eta_i) || std::isnan(phi_i) || eta_i < -1.1 || eta_i > 1.1 || phi_i < 0 || phi_i > 2 * M_PI) {
-	  continue; // Skip invalid values
+	    // Fill the appropriate histogram
+            if (maxEnergy < 2) {
+	      hist_deltaR_transverseEnergy_0_2->Fill(deltaR, transverseEnergy);
+            } else if (maxEnergy < 4) {
+	      hist_deltaR_transverseEnergy_2_4->Fill(deltaR, transverseEnergy);
+            } else if (maxEnergy < 6) {
+	      hist_deltaR_transverseEnergy_4_6->Fill(deltaR, transverseEnergy);
+            } else if (maxEnergy < 8) {
+	      hist_deltaR_transverseEnergy_6_8->Fill(deltaR, transverseEnergy);
+            } else {
+	      hist_deltaR_transverseEnergy_8_plus->Fill(deltaR, transverseEnergy);
+            }
+            hist_deltaR_transverseEnergy_ALL->Fill(deltaR, transverseEnergy);
+	    
+	    /*
+	    // std::cout << "transverse_energy:" << transverseEnergy << std::endl;
+	    
+	    // Determine the Z-axis value (maxEnergy) for this bin
+	    int binX = hist_to_fill->GetXaxis()->FindBin(deltaR);
+	    int binY = hist_to_fill->GetYaxis()->FindBin(transverseEnergy);
+	    double currentMaxEnergy = hist_to_fill->GetBinContent(binX, binY);
+	    
+	    // Update to maximum energy if current energy is higher
+	    if (maxEnergy > currentMaxEnergy) {
+	    hist_to_fill->SetBinContent(binX, binY, maxEnergy);
+	    // hist_to_fill->Fill(deltaR, transverseEnergy, maxEnergy); // Uncomment this if using TH3 histograms
+	    }
+	    */
+	    hist_to_fill->SetBinContent(deltaR, transverseEnergy);       
+	  }
 	}
-
-	// Calculate delta R
-	double dPhi = maxPhi - phi_i;
-	if (dPhi > +M_PI) dPhi -= 2 * M_PI;
-	if (dPhi < -M_PI) dPhi += 2 * M_PI;
-	double dEta = maxEta - eta_i;
-	double deltaR = std::sqrt(dPhi * dPhi + dEta * dEta);
-
-	//	std::cout << "dPhi: " << dPhi << std::endl;
-	//	std::cout << "dEta: " << dEta << std::endl;
-
-	// Calculate transverse energy
-	double transverseEnergy = energy_i * std::sin(std::atan2(std::sqrt(dEta * dEta + dPhi * dPhi), maxEta));
-
-	// Check for NaN in transverse energy calculation
-	if (std::isnan(transverseEnergy)) {
-	  continue; // Skip if transverse energy is NaN
-	}
-
-	// Store delta R and transverse energy values
-	deltaR_values.push_back(deltaR);
-	transverse_energy_values.push_back(transverseEnergy);
-
-	// Debug: Print maxEnergy before determining histogram to fill                                                                                                                              
-	//	std::cout << "deltaR: " << deltaR << std::endl;
-	//	std::cout << "transverse_energy:" << transverseEnergy << std::endl;
-
-        // Fill histogram
-        hist_to_fill->Fill(deltaR, transverseEnergy, maxEnergy);
       }
     }
   }
+  hist_deltaR_transverseEnergy_0_2->SetXTitle("#Delta R");
+  hist_deltaR_transverseEnergy_0_2->SetYTitle("Energy_{T} (GeV)");
+  hist_deltaR_transverseEnergy_0_2->SetZTitle("Trigger Patch Energy (GeV)");
+  
+  hist_deltaR_transverseEnergy_2_4->SetXTitle("#Delta R");
+  hist_deltaR_transverseEnergy_2_4->SetYTitle("Energy_{T} (GeV)");
+  hist_deltaR_transverseEnergy_2_4->SetZTitle("Trigger Patch Energy (GeV)");
 
+  hist_deltaR_transverseEnergy_4_6->SetXTitle("#Delta R");
+  hist_deltaR_transverseEnergy_4_6->SetYTitle("Energy_{T} (GeV)");
+  hist_deltaR_transverseEnergy_4_6->SetZTitle("Trigger Patch Energy (GeV)");
+
+  hist_deltaR_transverseEnergy_6_8->SetXTitle("#Delta R");
+  hist_deltaR_transverseEnergy_6_8->SetYTitle("Energy_{T} (GeV)");
+  hist_deltaR_transverseEnergy_6_8->SetZTitle("Trigger Patch Energy (GeV)");
+
+  hist_deltaR_transverseEnergy_8_plus->SetXTitle("#Delta R");
+  hist_deltaR_transverseEnergy_8_plus->SetYTitle("Energy_{T} (GeV)");
+  hist_deltaR_transverseEnergy_8_plus->SetZTitle("Trigger Patch Energy (GeV)");
+
+  hist_deltaR_transverseEnergy_ALL->SetXTitle("#Delta R");
+  hist_deltaR_transverseEnergy_ALL->SetYTitle("Energy_{T} (GeV)");
+  hist_deltaR_transverseEnergy_ALL->SetZTitle("Trigger Patch Energy (GeV)");
 
   hist_deltaR_transverseEnergy_ALL->Add(hist_deltaR_transverseEnergy_0_2);
   hist_deltaR_transverseEnergy_ALL->Add(hist_deltaR_transverseEnergy_2_4);
