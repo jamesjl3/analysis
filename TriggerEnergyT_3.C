@@ -17,7 +17,7 @@ void saveHistogramAsPNG(TH2F *histogram, const char *filename) {
   TCanvas *canvas = new TCanvas("canvas", "Canvas", 1200, 700);
   histogram->GetXaxis()->SetTitle("#Delta R");
   histogram->GetYaxis()->SetTitle("Transverse Energy (GeV)");
-  canvas->SetLogy();
+  canvas->SetLogz();
   gStyle->SetOptStat(0);
   gPad->SetRightMargin(0.2);
 
@@ -66,17 +66,16 @@ void TriggerEnergyT_3() {
   chain_jet04.SetBranchAddress("zvertex", &m_vertex);
 
   // Create histograms for different energy ranges
-  TH2F *hist_deltaR_transverseEnergy_0_2 = new TH2F("hist_deltaR_transverseEnergy_0_2", "Delta R vs Transverse Energy (0 < E < 2)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_2_4 = new TH2F("hist_deltaR_transverseEnergy_2_4", "Delta R vs Transverse Energy (2 < E < 4)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_4_6 = new TH2F("hist_deltaR_transverseEnergy_4_6", "Delta R vs Transverse Energy (4 < E < 6)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_6_8 = new TH2F("hist_deltaR_transverseEnergy_6_8", "Delta R vs Transverse Energy (6 < E < 8)", 50, 0, 0.45, 100, 0, 10);
-    TH2F *hist_deltaR_transverseEnergy_8_plus = new TH2F("hist_deltaR_transverseEnergy_8_plus", "Delta R vs Transverse Energy (E > 8)",50, 0, 0.45, 100, 0, 10);
-    TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy", 50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_0_2 = new TH2F("hist_deltaR_transverseEnergy_0_2", "Delta R vs Transverse Energy (0 < E < 2 GeV)", 50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_2_4 = new TH2F("hist_deltaR_transverseEnergy_2_4", "Delta R vs Transverse Energy (2 < E < 4 GeV)", 50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_4_6 = new TH2F("hist_deltaR_transverseEnergy_4_6", "Delta R vs Transverse Energy (4 < E < 6 GeV)", 50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_6_8 = new TH2F("hist_deltaR_transverseEnergy_6_8", "Delta R vs Transverse Energy (6 < E < 8 GeV)", 50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_8_plus = new TH2F("hist_deltaR_transverseEnergy_8_plus", "Delta R vs Transverse Energy (E > 8 GeV)",50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy (All Energy)", 50, 0, 0.45, 100, 0, 10);
 
     int trigger_bit = 17; // Adjust this index as needed
     int nEntries = chain_jet04.GetEntries();
 
-    double jet_radius = 0.4;  // Define jet size radius
 
     for (int ev = 0; ev < nEntries; ++ev) {
         chain_jet04.GetEntry(ev);
@@ -163,16 +162,14 @@ void TriggerEnergyT_3() {
 		delta_phi = 2 * M_PI - delta_phi;
 	      }
 	      double deltaR = TMath::Sqrt(delta_eta * delta_eta + delta_phi * delta_phi);
-
-	      if (deltaR <= jet_radius) {
-		double transverse_energy = sub_tower_energy / cosh(sub_tower_eta);
-		deltaR_values.push_back(deltaR);
-		transverse_energy_values.push_back(transverse_energy);
-
-		// Fill the histograms with delta R and transverse energy values
-		hist_to_fill->Fill(deltaR, transverse_energy);
-		hist_deltaR_transverseEnergy_ALL->Fill(deltaR, transverse_energy);
-	      }
+	      
+	      double transverse_energy = sub_tower_energy / cosh(sub_tower_eta);
+	      deltaR_values.push_back(deltaR);
+	      transverse_energy_values.push_back(transverse_energy);
+	      
+	      // Fill the histograms with delta R and transverse energy values
+	      hist_to_fill->Fill(deltaR, transverse_energy);
+	      hist_deltaR_transverseEnergy_ALL->Fill(deltaR, transverse_energy);
             }
         }
     }
