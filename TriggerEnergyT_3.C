@@ -66,12 +66,12 @@ void TriggerEnergyT_3() {
   chain_jet04.SetBranchAddress("zvertex", &m_vertex);
 
   // Create histograms for different energy ranges
-  TH2F *hist_deltaR_transverseEnergy_0_2 = new TH2F("hist_deltaR_transverseEnergy_0_2", "Delta R vs Transverse Energy (0 < E < 2 GeV)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_2_4 = new TH2F("hist_deltaR_transverseEnergy_2_4", "Delta R vs Transverse Energy (2 < E < 4 GeV)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_4_6 = new TH2F("hist_deltaR_transverseEnergy_4_6", "Delta R vs Transverse Energy (4 < E < 6 GeV)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_6_8 = new TH2F("hist_deltaR_transverseEnergy_6_8", "Delta R vs Transverse Energy (6 < E < 8 GeV)", 50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_8_plus = new TH2F("hist_deltaR_transverseEnergy_8_plus", "Delta R vs Transverse Energy (E > 8 GeV)",50, 0, 0.45, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy (All Energy)", 50, 0, 0.45, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_0_2 = new TH2F("hist_deltaR_transverseEnergy_0_2", "Delta R vs Transverse Energy (0 < E < 2 GeV)", 50, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_2_4 = new TH2F("hist_deltaR_transverseEnergy_2_4", "Delta R vs Transverse Energy (2 < E < 4 GeV)", 50, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_4_6 = new TH2F("hist_deltaR_transverseEnergy_4_6", "Delta R vs Transverse Energy (4 < E < 6 GeV)", 50, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_6_8 = new TH2F("hist_deltaR_transverseEnergy_6_8", "Delta R vs Transverse Energy (6 < E < 8 GeV)", 50, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_8_plus = new TH2F("hist_deltaR_transverseEnergy_8_plus", "Delta R vs Transverse Energy (E > 8 GeV)",50, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy (All Energy)", 50, 0, 3.60, 100, 0, 10);
 
     int trigger_bit = 17; // Adjust this index as needed
     int nEntries = chain_jet04.GetEntries();
@@ -125,53 +125,52 @@ void TriggerEnergyT_3() {
                     }
                 }
             }
-
-            // Skip filling histograms and calculations if maxEnergy is 0
-            if (maxEnergy == 0) {
-                continue;
-            }
-
-            // Determine which histogram to fill based on maxEnergy
-            TH2F *hist_to_fill = nullptr;
-            if (maxEnergy < 2) {
-                hist_to_fill = hist_deltaR_transverseEnergy_0_2;
-            } else if (maxEnergy < 4) {
-	      hist_to_fill = hist_deltaR_transverseEnergy_2_4;
-            } else if (maxEnergy < 6) {
-	      hist_to_fill = hist_deltaR_transverseEnergy_4_6;
-            } else if (maxEnergy < 8) {
-	      hist_to_fill = hist_deltaR_transverseEnergy_6_8;
-            } else {
-	      hist_to_fill = hist_deltaR_transverseEnergy_8_plus;
-            }
-
-            // Calculate delta R and transverse energy for sub-towers within the jet radius
-            for (int j = 0; j < b_cluster_towere->size(); ++j) {
-	      double sub_tower_eta = eta_map[static_cast<int>(b_cluster_towereta->at(j))];
-	      double sub_tower_phi = b_cluster_towerphi->at(j) * (2 * M_PI / 256);
-	      double sub_tower_energy = b_cluster_towere->at(j);
-
-	      // Validate sub-tower eta and phi values
-	      if (std::isnan(sub_tower_eta) || std::isnan(sub_tower_phi) || sub_tower_eta < -1.1 || sub_tower_eta > 1.1 || sub_tower_phi < 0 || sub_tower_phi > 2 * M_PI) {
-		continue; // Skip invalid values
-	      }
-
-	      double delta_eta = maxEta - sub_tower_eta;
-	      double delta_phi = TMath::Abs(maxPhi - sub_tower_phi);
-	      if (delta_phi > M_PI) {
-		delta_phi = 2 * M_PI - delta_phi;
-	      }
-	      double deltaR = TMath::Sqrt(delta_eta * delta_eta + delta_phi * delta_phi);
-	      
-	      double transverse_energy = sub_tower_energy / cosh(sub_tower_eta);
-	      deltaR_values.push_back(deltaR);
-	      transverse_energy_values.push_back(transverse_energy);
-	      
-	      // Fill the histograms with delta R and transverse energy values
-	      hist_to_fill->Fill(deltaR, transverse_energy);
-	      hist_deltaR_transverseEnergy_ALL->Fill(deltaR, transverse_energy);
-            }
-        }
+	}
+	// Skip filling histograms and calculations if maxEnergy is 0
+	if (maxEnergy == 0) {
+	  continue;
+	}
+	
+	// Determine which histogram to fill based on maxEnergy
+	TH2F *hist_to_fill = nullptr;
+	if (maxEnergy < 2) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_0_2;
+	} else if (maxEnergy < 4) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_2_4;
+	} else if (maxEnergy < 6) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_4_6;
+	} else if (maxEnergy < 8) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_6_8;
+	} else {
+	  hist_to_fill = hist_deltaR_transverseEnergy_8_plus;
+	}
+	
+	// Calculate delta R and transverse energy for sub-towers within the jet radius
+	for (int j = 0; j < b_cluster_towere->size(); ++j) {
+	  double sub_tower_eta = eta_map[static_cast<int>(b_cluster_towereta->at(j))];
+	  double sub_tower_phi = b_cluster_towerphi->at(j) * (2 * M_PI / 256);
+	  double sub_tower_energy = b_cluster_towere->at(j);
+	  
+	  // Validate sub-tower eta and phi values
+	  if (std::isnan(sub_tower_eta) || std::isnan(sub_tower_phi) || sub_tower_eta < -1.1 || sub_tower_eta > 1.1 || sub_tower_phi < 0 || sub_tower_phi > 2 * M_PI) {
+	    continue; // Skip invalid values
+	  }
+	  
+	  double delta_eta = maxEta - sub_tower_eta;
+	  double delta_phi = TMath::Abs(maxPhi - sub_tower_phi);
+	  if (delta_phi > M_PI) {
+	    delta_phi = 2 * M_PI - delta_phi;
+	  }
+	  double deltaR = TMath::Sqrt(delta_eta * delta_eta + delta_phi * delta_phi);
+	  
+	  double transverse_energy = sub_tower_energy / cosh(sub_tower_eta);
+	  deltaR_values.push_back(deltaR);
+	  transverse_energy_values.push_back(transverse_energy);
+	  
+	  // Fill the histograms with delta R and transverse energy values
+	  hist_to_fill->Fill(deltaR, transverse_energy);
+	  hist_deltaR_transverseEnergy_ALL->Fill(deltaR, transverse_energy);
+	}
     }
     
     // Save histograms as PNG files
