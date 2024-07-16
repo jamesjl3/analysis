@@ -86,22 +86,26 @@ void TriggerEnergyT_3() {
     double maxEnergyPatch = 0;
     double maxEtaPatch = 0;
     double maxPhiPatch = 0;
-    bool foundMaxInPatch = false; // Flag to track if max in patch is found
-
-    // Loop over jet patches to find the highest energy tower within the patch that fired the trigger
+    bool foundTriggerPatch = false; // Flag to track if the trigger patch is found
+    // Loop over jet patches to find the patch that fired the trigger
     for (int ietabin = 0; ietabin < n_jettrigger_etabin; ++ietabin) {
       for (int iphibin = 0; iphibin < n_jettrigger_phibin; ++iphibin) {
 	if (trigger_jet_patch[ietabin][iphibin] > maxEnergyPatch) {
 	  maxEnergyPatch = trigger_jet_patch[ietabin][iphibin];
 	  maxEtaPatch = eta_map[jettrigger_min_etabin[ietabin]];
 	  maxPhiPatch = jettrigger_min_phibin[iphibin] * (2 * M_PI / 256);
-	  foundMaxInPatch = true; // Set flag when max in patch is found
-	  //	  break; // Exit inner loop once max in patch is found
+	  foundTriggerPatch = true; // Set flag when the trigger patch is found
+	  break; // Exit inner loop once trigger patch is found
 	}
       }
-      if (foundMaxInPatch) {
-	break; // Exit outer loop once max in patch is found
+      if (foundTriggerPatch) {
+	break; // Exit outer loop once trigger patch is found
       }
+    }
+
+    // Ensure that the trigger patch was found before proceeding
+    if (!foundTriggerPatch) {
+      continue; // Skip the rest of the processing if no trigger patch was found
     }
     
     // Calculate delta R and transverse energy for sub-towers within the event
