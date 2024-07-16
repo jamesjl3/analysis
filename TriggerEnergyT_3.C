@@ -54,7 +54,8 @@ void TriggerEnergyT_3() {
   std::vector<float> *b_cluster_towerphi = 0;
   int b_gl1_triggervec[64] = {0};
   float m_vertex = std::numeric_limits<float>::quiet_NaN();
-  int trigger_jet_patch[n_jettrigger_etabin][n_jettrigger_phibin] = {{0}};
+  int trigger_jet_energy[n_jettrigger_etabin][n_jettrigger_phibin] = {{0}};
+  int trigger_jet_patch[n_jettrigger_etabin][n_jettrigger_phibin];
 
   chain_jet04.SetBranchStatus("gl1_triggervec", 1);
   chain_jet04.SetBranchAddress("gl1_triggervec", b_gl1_triggervec);
@@ -87,19 +88,22 @@ void TriggerEnergyT_3() {
     double maxEtaPatch = 0;
     double maxPhiPatch = 0;
     bool foundTriggerPatch = false; // Flag to track if the trigger patch is found
-    // Loop over jet patches to find the patch that fired the trigger
+
     for (int ietabin = 0; ietabin < n_jettrigger_etabin; ++ietabin) {
       for (int iphibin = 0; iphibin < n_jettrigger_phibin; ++iphibin) {
-	if (trigger_jet_patch[ietabin][iphibin] > maxEnergyPatch) {
-	  maxEnergyPatch = trigger_jet_patch[ietabin][iphibin];
-	  maxEtaPatch = eta_map[jettrigger_min_etabin[ietabin]];
-	  maxPhiPatch = jettrigger_min_phibin[iphibin] * (2 * M_PI / 256);
-	  foundTriggerPatch = true; // Set flag when the trigger patch is found
-	  break; // Exit inner loop once trigger patch is found
-	}
+        // Check if the current patch fired the trigger
+        if (trigger_jet_patch[ietabin][iphibin] == 1) {
+	  // Now check if it has higher energy than the current maxEnergyPatch
+	  if (trigger_jet_energy[ietabin][iphibin] > maxEnergyPatch) {
+	    maxEnergyPatch = trigger_jet_energy[ietabin][iphibin];
+	    maxEtaPatch = eta_map[jettrigger_min_etabin[ietabin]];
+	    maxPhiPatch = jettrigger_min_phibin[iphibin] * (2 * M_PI / 256);
+	    foundTriggerPatch = true; // Set flag when the trigger patch is found
+	  }
+        }
       }
       if (foundTriggerPatch) {
-	break; // Exit outer loop once trigger patch is found
+        break; // Exit outer loop once trigger patch is found
       }
     }
 
@@ -107,7 +111,7 @@ void TriggerEnergyT_3() {
     if (!foundTriggerPatch) {
       continue; // Skip the rest of the processing if no trigger patch was found
     }
-    
+      
     // Calculate delta R and transverse energy for sub-towers within the event
     for (int j = 0; j < b_cluster_towere->size(); ++j) {
       double sub_tower_eta = eta_map[static_cast<int>(b_cluster_towereta->at(j))];
@@ -143,7 +147,7 @@ void TriggerEnergyT_3() {
       
       // Calculate transverse energy for the sub-tower
       double transverse_energy = sub_tower_energy / std::cosh(sub_tower_eta);
-      
+         
       // Fill the appropriate histogram based on maxEnergyPatch
       TH2F *hist_to_fill = nullptr;
       if (maxEnergyPatch < 2) {
