@@ -82,61 +82,61 @@ void TriggerEnergyT_3() {
     for (int ev = 0; ev < nEntries; ++ev) {
         chain_jet04.GetEntry(ev);
 
+	// Check trigger condition
+	if (b_gl1_triggervec[trigger_bit] != 1) {
+	  continue; // Skip events that do not pass the trigger condition
+	}
+
+	double maxEnergy = 0;
+	double maxEta = 0;
+	double maxPhi = 0;
+
+	int trigger_patch_eta_idx = -1;
+	int trigger_patch_phi_idx = -1;
 	int max_jet_patch = 0;
+
+	// Determine the maximum energy sum patch
 	for (int ietabin = 0; ietabin < n_jettrigger_etabin; ++ietabin) {
 	  for (int iphibin = 0; iphibin < n_jettrigger_phibin; ++iphibin) {
 	    if (trigger_jet_patch[ietabin][iphibin] > max_jet_patch) {
 	      max_jet_patch = trigger_jet_patch[ietabin][iphibin];
+	      trigger_patch_eta_idx = ietabin;
+	      trigger_patch_phi_idx = iphibin;
 	    }
 	  }
 	}
 
-        // Check trigger condition
-        if (b_gl1_triggervec[trigger_bit] != 1) {
-            continue; // Skip events that do not pass the trigger condition
-        }
+	// Loop over towers in the event
+	for (int i = 0; i < b_cluster_towere->size(); ++i) {
+	  int eta_idx = static_cast<int>(b_cluster_towereta->at(i));
+	  int phi_idx = static_cast<int>(b_cluster_towerphi->at(i));
+	  double energy = b_cluster_towere->at(i);
 
-        double maxEnergy = 0;
-        double maxEta = 0;
-        double maxPhi = 0;
+	  // Validate eta index
+	  if (eta_idx < 0 || eta_idx >= n_hcal_etabin) {
+	    continue; // Skip invalid eta index
+	  }
 
-        // Loop over towers in the event
-        for (int i = 0; i < b_cluster_towere->size(); ++i) {
-            int eta_idx = static_cast<int>(b_cluster_towereta->at(i));
-            int phi_idx = static_cast<int>(b_cluster_towerphi->at(i));
-            double energy = b_cluster_towere->at(i);
+	  // Map eta and phi indices to actual values
+	  double eta = eta_map[eta_idx];
+	  double phi = phi_idx * (2 * M_PI / 256);
 
-            // Validate eta index
-            if (eta_idx < 0 || eta_idx >= n_hcal_etabin) {
-                continue; // Skip invalid eta index
-            }
+	  // Validate eta and phi values
+	  if (std::isnan(eta) || std::isnan(phi) || eta < -1.1 || eta > 1.1 || phi < 0 || phi > 2 * M_PI) {
+	    continue; // Skip invalid values
+	  }
 
-            // Map eta and phi indices to actual values
-            double eta = eta_map[eta_idx];
-            double phi = phi_idx * (2 * M_PI / 256);
+	  // Check if the tower is within the patch that fired the trigger
+	  if (eta >= eta_map[jettrigger_min_etabin[trigger_patch_eta_idx]] && eta <= eta_map[jettrigger_max_etabin[trigger_patch_eta_idx]] &&
+	      phi >= jettrigger_min_phibin[trigger_patch_phi_idx] * (2 * M_PI / 64) && phi <= jettrigger_max_phibin[trigger_patch_phi_idx] * (2 * M_PI / 64)) {
 
-            // Validate eta and phi values
-            if (std::isnan(eta) || std::isnan(phi) || eta < -1.1 || eta > 1.1 || phi < 0 || phi > 2 * M_PI) {
-                continue; // Skip invalid values
-            }
-
-            // Loop over trigger patch bins
-            for (int ietabin = 0; ietabin < n_jettrigger_etabin; ++ietabin) {
-                for (int iphibin = 0; iphibin < n_jettrigger_phibin; ++iphibin) {
-                    // Apply trigger patch eta-phi constraints
-                    if (eta >= eta_map[jettrigger_min_etabin[ietabin]] && eta <= eta_map[jettrigger_max_etabin[ietabin]] &&
-                        phi >= jettrigger_min_phibin[iphibin] * (2 * M_PI / 64) && phi <= jettrigger_max_phibin[iphibin] * (2 * M_PI / 64)) {
-
-                        // Find tower with maximum energy within the trigger patch
-                        if (energy > maxEnergy) {
-                            maxEnergy = energy;
-			    std::cout << "maxEnergy: " << maxEnergy << std::endl;
-                            maxEta = eta;
-                            maxPhi = phi;
-                        }
-                    }
-                }
-            }
+	    // Find tower with maximum energy within the trigger patch
+	    if (energy > maxEnergy) {
+	      maxEnergy = energy;
+	      maxEta = eta;
+	      maxPhi = phi;
+	    }
+	  }
 	}
 	// Skip filling histograms and calculations if maxEnergy is 0
 	if (maxEnergy == 0) {
