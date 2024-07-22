@@ -28,7 +28,7 @@ void saveHistogramAsPNG(TH2F *histogram, const char *filename) {
 
 void TriggerEnergyT_3() {
   TChain chain_jet04("ttree");
-  chain_jet04.Add("../macros/output_47089.root");
+  chain_jet04.Add("/sphenix/tg/tg01/jets/jamesj3j3/output_48089_1.root");
 
   // Constants
   static const int n_hcal_etabin = 24;
@@ -68,14 +68,14 @@ void TriggerEnergyT_3() {
   int trigger_jet_patch[n_jettrigger_etabin][n_jettrigger_phibin];
   chain_jet04.SetBranchAddress("trigger_sum_jet", trigger_jet_patch);
 
-  TH2F *hist_deltaR_transverseEnergy_0_15 = new TH2F("hist_deltaR_transverseEnergy_0_15", "Delta R vs Transverse Energy (0 < E < 1.5 GeV)", 360, 0, 3.60, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_15_3 = new TH2F("hist_deltaR_transverseEnergy_15_3", "Delta R vs Transverse Energy (1.5 < E < 3 GeV)", 360, 0, 3.60, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_3_45 = new TH2F("hist_deltaR_transverseEnergy_3_45", "Delta R vs Transverse Energy (3 < E < 4.5 GeV)", 360, 0, 3.60, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_45_6 = new TH2F("hist_deltaR_transverseEnergy_45_6", "Delta R vs Transverse Energy (4.5 < E < 6 GeV)", 360, 0, 3.60, 100, 0, 10);
-  TH2F *hist_deltaR_transverseEnergy_6_plus = new TH2F("hist_deltaR_transverseEnergy_6_plus", "Delta R vs Transverse Energy (E > 6 GeV)", 360, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_0_1 = new TH2F("hist_deltaR_transverseEnergy_0_1", "Delta R vs Transverse Energy (0 < E < 1.5 GeV)", 360, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_1_2 = new TH2F("hist_deltaR_transverseEnergy_1_2", "Delta R vs Transverse Energy (1.5 < E < 3 GeV)", 360, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_2_3 = new TH2F("hist_deltaR_transverseEnergy_2_3", "Delta R vs Transverse Energy (3 < E < 4.5 GeV)", 360, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_3_4 = new TH2F("hist_deltaR_transverseEnergy_3_4", "Delta R vs Transverse Energy (4.5 < E < 6 GeV)", 360, 0, 3.60, 100, 0, 10);
+  TH2F *hist_deltaR_transverseEnergy_4_plus = new TH2F("hist_deltaR_transverseEnergy_4_plus", "Delta R vs Transverse Energy (E > 6 GeV)", 360, 0, 3.60, 100, 0, 10);
   TH2F *hist_deltaR_transverseEnergy_ALL = new TH2F("hist_deltaR_transverseEnergy_ALL", "Delta R vs Transverse Energy (All Energy)", 360, 0, 3.60, 100, 0, 10);
 
-    int trigger_bit = 17; // Adjust this index as needed
+    int trigger_bit = 19; // Adjust this index as needed
     int nEntries = chain_jet04.GetEntries();
 
 
@@ -145,16 +145,16 @@ void TriggerEnergyT_3() {
 	
 	// Determine which histogram to fill based on maxEnergy
 	TH2F *hist_to_fill = nullptr;
-	if (maxEnergy < 1.5) {
-	  hist_to_fill = hist_deltaR_transverseEnergy_0_15;
+	if (maxEnergy < 1) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_0_1;
+	} else if (maxEnergy < 2) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_1_2;
 	} else if (maxEnergy < 3) {
-	  hist_to_fill = hist_deltaR_transverseEnergy_15_3;
-	} else if (maxEnergy < 4.5) {
-	  hist_to_fill = hist_deltaR_transverseEnergy_3_45;
-	} else if (maxEnergy < 6) {
-	  hist_to_fill = hist_deltaR_transverseEnergy_45_6;
+	  hist_to_fill = hist_deltaR_transverseEnergy_2_3;
+	} else if (maxEnergy < 4) {
+	  hist_to_fill = hist_deltaR_transverseEnergy_3_4;
 	} else {
-	  hist_to_fill = hist_deltaR_transverseEnergy_6_plus;
+	  hist_to_fill = hist_deltaR_transverseEnergy_4_plus;
 	}
 	
 	// Calculate delta R and transverse energy for sub-towers within the jet radius
@@ -174,7 +174,12 @@ void TriggerEnergyT_3() {
 	    delta_phi = 2 * M_PI - delta_phi;
 	  }
 	  double deltaR = TMath::Sqrt(delta_eta * delta_eta + delta_phi * delta_phi);
-	  
+
+	  // Skip filling histograms and calculations if deltaR 0
+	  if (deltaR == 0) {
+	    continue;
+	  }	  
+
 	  double transverse_energy = sub_tower_energy / cosh(sub_tower_eta);
 	  deltaR_values.push_back(deltaR);
 	  transverse_energy_values.push_back(transverse_energy);
@@ -186,12 +191,12 @@ void TriggerEnergyT_3() {
     }
     
     // Save histograms as PNG files
-    saveHistogramAsPNG(hist_deltaR_transverseEnergy_0_15, "hist_deltaR_transverseEnergy_0_15.png");
-    saveHistogramAsPNG(hist_deltaR_transverseEnergy_15_3, "hist_deltaR_transverseEnergy_15_3.png");
-    saveHistogramAsPNG(hist_deltaR_transverseEnergy_3_45, "hist_deltaR_transverseEnergy_3_45.png");
-    saveHistogramAsPNG(hist_deltaR_transverseEnergy_45_6, "hist_deltaR_transverseEnergy_45_6.png");
-    saveHistogramAsPNG(hist_deltaR_transverseEnergy_6_plus, "hist_deltaR_transverseEnergy_6_plus.png");
-    saveHistogramAsPNG(hist_deltaR_transverseEnergy_ALL, "hist_deltaR_transverseEnergy_ALL.png");
+    saveHistogramAsPNG(hist_deltaR_transverseEnergy_0_1, "48089_hist_deltaR_transverseEnergy_0_1.png");
+    saveHistogramAsPNG(hist_deltaR_transverseEnergy_1_2, "48089_hist_deltaR_transverseEnergy_1_2.png");
+    saveHistogramAsPNG(hist_deltaR_transverseEnergy_2_3, "48089_hist_deltaR_transverseEnergy_2_3.png");
+    saveHistogramAsPNG(hist_deltaR_transverseEnergy_3_4, "48089_hist_deltaR_transverseEnergy_3_4.png");
+    saveHistogramAsPNG(hist_deltaR_transverseEnergy_4_plus, "48089_hist_deltaR_transverseEnergy_4_plus.png");
+    saveHistogramAsPNG(hist_deltaR_transverseEnergy_ALL, "48089_hist_deltaR_transverseEnergy_ALL.png");
 
     std::cout << "Done!" << std::endl;
 }
