@@ -5,12 +5,14 @@
 #include <string>
 #include <vector>
 #include <cmath> // Include this for fabs
+//#include <omp.h>
 
 R__LOAD_LIBRARY(libcaloTreeGen.so)
 
 
-void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
+void ClusTrig(std::string outFile="./trigEmulator_run_49089_ClusTrig.root"){
 
+  gROOT->SetBatch(kTRUE);
   SetsPhenixStyle();
   TH1::SetDefaultSumw2();
   TH2::SetDefaultSumw2();
@@ -26,24 +28,21 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   }
   //gInterpreter->GenerateDictionary("vector<vector<int>>","vector");
   // TTree *ttree = (TTree*)in->Get("ttree");
-  
-  // Loop over each file
-  for (const auto &fileName : fileList) {
-    // Open the ROOT file
-    TFile *in = TFile::Open(fileName.c_str());
+  #pragma omp parallel for
+  for (int i = 0; i < fileList.size(); ++i) {
+    std::string fileName = fileList[i];
+    TFile* in = TFile::Open(fileName.c_str());
     if (!in || in->IsZombie()) {
       std::cerr << "Failed to open file: " << fileName << std::endl;
       continue;
     }
+    // Create a TChain to handle multiple input files
+    TChain *ttree = new TChain("ttree");  // Replace "ttree" with the actual name of your tree
 
-    // Get the tree
-    TTree *ttree = (TTree *)in->Get("ttree");
-    if (!ttree) {
-      std::cerr << "Failed to get tree from file: " << fileName << std::endl;
-      in->Close();
-      continue;
-    }
-  //T->Print();
+    // Add files to the chain
+    for (int i = 1; i <= 40; ++i) {
+      ttree->Add(Form("/sphenix/tg/tg01/jets/jamesj3j3/output_48089_%d.root", i));
+    }  //T->Print();
   
   // Constants
   static const int n_hcal = 1536;
@@ -92,63 +91,42 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   //  std::vector<bool> *b_gl1_triggervec = 0;
   int b_gl1_triggervec[64];
 
-  //  ttree -> SetBranchAddress("trigger_primitive_emcal_bit", b_trigger_sum_emcal);
-  //  ttree -> SetBranchAddress("trigger_primitive_ihcal_bit", b_trigger_sum_hcalin);
-  //  ttree -> SetBranchAddress("trigger_primitive_ohcal_bit", b_trigger_sum_hcalout);
-  //  ttree -> SetBranchAddress("trigger_ll1sum_emcal_bit", b_trigger_sum_emcal_ll1);
-  //  ttree -> SetBranchAddress("trigger_ll1sum_hcal_bit", b_trigger_sum_hcal_ll1);
-  //  ttree -> SetBranchAddress("trigger_jet_bit", b_trigger_sum_jet);
+  ttree -> SetCacheSize(100 * 1024 * 1024); // 100 MB cache size
+
+  //  ttree -> SetBranchStatus("*", 0); // Disable all branches  
   ttree -> SetBranchAddress("emcal_tower_e", b_emcal_energy);
   ttree -> SetBranchAddress("ihcal_tower_e", b_hcalin_energy);
   ttree -> SetBranchAddress("ohcal_tower_e", b_hcalout_energy);
   ttree -> SetBranchAddress("emcal_tower_time", b_emcal_time);
   ttree -> SetBranchAddress("ihcal_tower_time", b_hcalin_time);
   ttree -> SetBranchAddress("ohcal_tower_time", b_hcalout_time);
-
   ttree -> SetBranchAddress("cluster_towere",&b_cluster_towere);
   ttree -> SetBranchAddress("cluster_towereta", &b_cluster_towereta); 
   ttree -> SetBranchAddress("cluster_towerphi", &b_cluster_towerphi);
-  
   ttree -> SetBranchAddress("zvertex", &m_vertex);
-
-  // ttree -> SetBranchAddress("gl1_triggervec", &b_gl1_triggervec);
   ttree -> SetBranchAddress("gl1_triggervec", &b_gl1_triggervec); //"gl1_triggervec[64]/I");
-
-
-  //T->Scan("clusterE");                                                                                                                                                                     
-  // Defining canvas and setting the z axis to log scale                                                                                                                                     
-  TCanvas *c1 = new TCanvas("Trigger Clusters 1","Trigger Clusters 1 Run 47089");
-  TCanvas *c2 = new TCanvas("Trigger Clusters 2","Trigger Clusters 2 Run 47089");
-  TCanvas *c3 = new TCanvas("Trigger Clusters 3","Trigger Clusters 3 Run 47089");
-  TCanvas *c4 = new TCanvas("Trigger Clusters Phi 1","Trigger Clusters Phi 1 Run 47089");  
-  TCanvas *c5 = new TCanvas("Trigger Clusters Phi 2","Trigger Clusters Phi 2 Run 47089");
-  TCanvas *c6 = new TCanvas("Trigger Clusters Phi 3","Trigger Clusters Phi 3 Run 47089");
-  TCanvas *c7 = new TCanvas("Trigger Clusters Eta 1","Trigger Clusters Eta 1 Run 47089");
-  TCanvas *c8 = new TCanvas("Trigger Clusters Eta 2","Trigger Clusters Eta 2 Run 47089");
-  TCanvas *c9 = new TCanvas("Trigger Clusters Eta 3","Trigger Clusters Eta 3 Run 47089");
+                  
+  TCanvas *c1 = new TCanvas("Trigger Clusters 1","Trigger Clusters 1 Run 49089");
+  TCanvas *c2 = new TCanvas("Trigger Clusters 2","Trigger Clusters 2 Run 49089");
+  TCanvas *c3 = new TCanvas("Trigger Clusters 3","Trigger Clusters 3 Run 49089");
+  TCanvas *c4 = new TCanvas("Trigger Clusters Phi 1","Trigger Clusters Phi 1 Run 49089");  
+  TCanvas *c5 = new TCanvas("Trigger Clusters Phi 2","Trigger Clusters Phi 2 Run 49089");
+  TCanvas *c6 = new TCanvas("Trigger Clusters Phi 3","Trigger Clusters Phi 3 Run 49089");
+  TCanvas *c7 = new TCanvas("Trigger Clusters Eta 1","Trigger Clusters Eta 1 Run 49089");
+  TCanvas *c8 = new TCanvas("Trigger Clusters Eta 2","Trigger Clusters Eta 2 Run 49089");
+  TCanvas *c9 = new TCanvas("Trigger Clusters Eta 3","Trigger Clusters Eta 3 Run 49089");
 
 // Defining the Histogram, setting number of bins for x and y axes                                                                                                                         
   //TH2D *ClusterPhotonTrigger26 = new TH2D("ClusterPhotonTrigger26","Tower Photon Trigger 26 Run 44224",50,0,90,50,0,250);                                                                  
-  TH2D *TowerJetTrigger17 = new TH2D("TowerJetTrigger17","Tower Jet 2 (8 GeV) Trigger 17 Run 47089",96,0,96,256,0,256);
-  TH2D *TowerJetTrigger18 = new TH2D("TowerJetTrigger18","Tower Jet 3 (10 GeV) Trigger 18 Run 47089",96,0,96,256,0,256);
-  TH2D *TowerJetTrigger19 = new TH2D("TowerJetTrigger19","Tower Jet 4 (12 GeV) Trigger 19 Run 47089",96,0,96,256,0,256);
-  TH1F *TowerJetTriggerPhi17 = new TH1F("TowerJetTriggerPhi17","Tower Jet 2 in Phi (8 GeV) Trigger 17 Run 47089",256,0,256);
-  TH1F *TowerJetTriggerPhi18 = new TH1F("TowerJetTriggerPhi18","Tower Jet 3 in Phi (10 GeV) Trigger 18 Run 47089",256,0,256);
-  TH1F *TowerJetTriggerPhi19 = new TH1F("TowerJetTriggerPhi19","Tower Jet 4 in Phi (12 GeV) Trigger 19 Run 47089",256,0,256);
-  TH1F *TowerJetTriggerEta17 = new TH1F("TowerJetTriggerEta17","Tower Jet 2 in Eta (8 GeV) Trigger 17 Run 47089",96,0,96);
-  TH1F *TowerJetTriggerEta18 = new TH1F("TowerJetTriggerEta18","Tower Jet 3 in Eta (10 GeV) Trigger 18 Run 47089",96,0,96);
-  TH1F *TowerJetTriggerEta19 = new TH1F("TowerJetTriggerEta19","Tower Jet 4 in Eta (12 GeV) Trigger 19 Run 47089",96,0,96);
-
-  //T->Scan("clusterE");
-  // Defining canvas and setting the z axis to log scale
-  //  TCanvas *c1 = new TCanvas("Trigger Clusters 1","Trigger Clusters 1 Run 44221");
-  // TCanvas *c2 = new TCanvas("Trigger Clusters 2","Trigger Clusters 2 Run 44227");
-  
-  // Defining the Histogram, setting number of bins for x and y axes
-  //  TH2D *ClusterPhotonTrigger26 = new TH2D("ClusterPhotonTrigger26","Cluster Photon Trigger 26 Run 44221",50,-1.3,1.3,50,-3.3,3.3);
-  // TH2D *TowerPhotonTrigger26 = new TH2D("TowerPhotonTrigger26","Tower Photon Trigger 26 Run 44221",50,0,90,50,0,250);
-  //TH2D *TowerJetTrigger17 = new TH2D("TowerJetTrigger17","Tower Jet 2 Trigger 17 Run 44227",100,0,90,100,0,250);
-  //TH2D *TowerJetTrigger19 = new TH2D("TowerJetTrigger19","Tower Jet 4 Trigger 19 Run 44227",100,0,90,100,0,250);
+  TH2D *TowerJetTrigger17 = new TH2D("TowerJetTrigger17","Tower Jet 2 (8 GeV) Trigger 17 Run 49089",96,0,96,256,0,256);
+  TH2D *TowerJetTrigger18 = new TH2D("TowerJetTrigger18","Tower Jet 3 (10 GeV) Trigger 18 Run 49089",96,0,96,256,0,256);
+  TH2D *TowerJetTrigger19 = new TH2D("TowerJetTrigger19","Tower Jet 4 (12 GeV) Trigger 19 Run 49089",96,0,96,256,0,256);
+  TH1F *TowerJetTriggerPhi17 = new TH1F("TowerJetTriggerPhi17","Tower Jet 2 in Phi (8 GeV) Trigger 17 Run 49089",256,0,256);
+  TH1F *TowerJetTriggerPhi18 = new TH1F("TowerJetTriggerPhi18","Tower Jet 3 in Phi (10 GeV) Trigger 18 Run 49089",256,0,256);
+  TH1F *TowerJetTriggerPhi19 = new TH1F("TowerJetTriggerPhi19","Tower Jet 4 in Phi (12 GeV) Trigger 19 Run 49089",256,0,256);
+  TH1F *TowerJetTriggerEta17 = new TH1F("TowerJetTriggerEta17","Tower Jet 2 in Eta (8 GeV) Trigger 17 Run 49089",96,0,96);
+  TH1F *TowerJetTriggerEta18 = new TH1F("TowerJetTriggerEta18","Tower Jet 3 in Eta (10 GeV) Trigger 18 Run 49089",96,0,96);
+  TH1F *TowerJetTriggerEta19 = new TH1F("TowerJetTriggerEta19","Tower Jet 4 in Eta (12 GeV) Trigger 19 Run 49089",96,0,96);
   
   int nEvents = ttree->GetEntries();
   //cout << "nEvents: " << nEvents << endl;
@@ -285,7 +263,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   // out->cd();
   // Drawing the histogram and labelling axes
   
-  /*  
+ 
   c1->cd();
   c1->SetLogz();
   gStyle->SetOptStat(0);
@@ -296,7 +274,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTrigger17->GetYaxis()->SetTitle("#phi");
   TowerJetTrigger17->GetZaxis()->SetTitle("Energy");
   
-  c1->SaveAs("TowerJetTrigger17_47089.png");
+  c1->SaveAs("TowerJetTrigger17_49089.png");
 
   c2->cd();
   c2->SetLogz();
@@ -308,7 +286,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTrigger18->GetYaxis()->SetTitle("#phi");
   TowerJetTrigger18->GetZaxis()->SetTitle("Energy");
 
-  c2->SaveAs("TowerJetTrigger18_47089.png");
+  c2->SaveAs("TowerJetTrigger18_49089.png");
 
   c3->cd();
   c3->SetLogz();
@@ -319,8 +297,8 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTrigger19->GetXaxis()->SetTitle("#eta");
   TowerJetTrigger19->GetYaxis()->SetTitle("#phi");
   TowerJetTrigger19->GetZaxis()->SetTitle("Energy");
-  */
-  c3->SaveAs("TowerJetTrigger19_47089.png");
+  
+  c3->SaveAs("TowerJetTrigger19_49089.png");
   
   c4->cd();
   c4->SetLogy();
@@ -332,7 +310,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTriggerPhi17->GetYaxis()->SetTitle("Energy");
   
   // Save the canvas
-  c4->SaveAs("TowerJetTriggerPhi17_47089w.png");
+  c4->SaveAs("TowerJetTriggerPhi17_49089w.png");
   
   c5->cd();
   c5->SetLogy();
@@ -342,7 +320,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTriggerPhi18->Draw("COLZ");
   TowerJetTriggerPhi18->GetXaxis()->SetTitle("#phi");
   TowerJetTriggerPhi18->GetYaxis()->SetTitle("Energy");
-  c5->SaveAs("TowerJetTriggerPhi18_47089w.png");
+  c5->SaveAs("TowerJetTriggerPhi18_49089w.png");
   
   c6->cd();
   c6->SetLogy();
@@ -353,7 +331,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTriggerPhi19->GetXaxis()->SetTitle("#phi");
   TowerJetTriggerPhi19->GetYaxis()->SetTitle("Energy");
 
-  c6->SaveAs("TowerJetTriggerPhi19_47089w.png");
+  c6->SaveAs("TowerJetTriggerPhi19_49089w.png");
 
   c7->cd();
   c7->SetLogy();
@@ -364,7 +342,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTriggerEta17->GetXaxis()->SetTitle("#eta");
   TowerJetTriggerEta17->GetYaxis()->SetTitle("Energy");
 
-  c7->SaveAs("TowerJetTriggerEta17_47089w.png");
+  c7->SaveAs("TowerJetTriggerEta17_49089w.png");
   
   c8->cd();
   c8->SetLogy();
@@ -374,7 +352,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTriggerEta18->Draw("COLZ");
   TowerJetTriggerEta18->GetXaxis()->SetTitle("#eta");
   TowerJetTriggerEta18->GetYaxis()->SetTitle("Energy");
-  c8->SaveAs("TowerJetTriggerEta18_47089w.png");
+  c8->SaveAs("TowerJetTriggerEta18_49089w.png");
   
   c9->cd();
   c9->SetLogy();
@@ -385,7 +363,7 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   TowerJetTriggerEta19->GetXaxis()->SetTitle("#eta");
   TowerJetTriggerEta19->GetYaxis()->SetTitle("Energy");
 
-  c9->SaveAs("TowerJetTriggerEta19_47089w.png");
+  c9->SaveAs("TowerJetTriggerEta19_49089w.png");
   
 
  // For creating text label for the Chi2 parameter: 
@@ -393,6 +371,8 @@ void ClusTrig(std::string outFile="./trigEmulator_run_47089_ClusTrig.root"){
   // Then, left click to add text, edit borders and fill color of box
   // For this histogram, I chose text size 20, border size 0, fill color white, text font times, and text alignment 22 (middle, middle)
   out->Close();
-
+  delete out;
+  delete ttree;  
+  }
+  
 }
-
