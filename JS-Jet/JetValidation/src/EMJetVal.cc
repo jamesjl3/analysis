@@ -44,6 +44,7 @@
 #include <memory>  // for allocator_traits<>::value_type        
 #include <Pythia8/Pythia.h> // Include the Pythia header
 #include <jetbackground/TowerBackground.h>
+#include <jetbackground/FastJetAlgoSub.h>
 
 #include <TTree.h>
 #include <iostream>
@@ -129,16 +130,39 @@ int EMJetVal::Init(PHCompositeNode *topNode)
   std::cout << "EMJetVal::Init - Output to " << m_outputFileName << std::endl;
   //Analysis hists
   outFile = new TFile(m_outputFileName.c_str(), "RECREATE");
-  _h_R04_z_sj_10_20= new TH1F("R04_z_sj_10_20","z_sj in subjets 1 & 2", 10, 0, 0.5);
-  _h_R04_theta_sj_10_20= new TH1F("R04_theta_sj_10_20","theta_sj in subjets 1 & 2", 10, 0, 0.5);
-  // softdrop hists
-   _h_R04_z_g_10_20= new TH1F("R04_z_g_10_20","z_g in subjets 1 & 2", 10, 0, 0.5);
-   _h_R04_theta_g_10_20= new TH1F("R04_theta_g_10_20","theta_g in subjets 1 & 2", 10, 0, 0.5);
+  _h_R04_z_sj_5_10= new TH1F("R04_z_sj_5_10","z_sj in subjets 1 & 2", 10, 0, 0.5);                 //jet pT 5 -> 10 GeV
+  _h_R04_theta_sj_5_10= new TH1F("R04_theta_sj_5_10","theta_sj in subjets 1 & 2", 10, 0, 0.5);     //jet pT 5 -> 10 GeV
+  _h_R04_z_sj_10_20= new TH1F("R04_z_sj_10_20","z_sj in subjets 1 & 2", 10, 0, 0.5);               //jet pT 10 -> 20 GeV
+  _h_R04_theta_sj_10_20= new TH1F("R04_theta_sj_10_20","theta_sj in subjets 1 & 2", 10, 0, 0.5);   //jet pT 10 -> 20 GeV
+  _h_R04_z_sj_20_30= new TH1F("R04_z_sj_20_30","z_sj in subjets 1 & 2", 10, 0, 0.5);               //jet pT 20 -> 30 GeV
+  _h_R04_theta_sj_20_30= new TH1F("R04_theta_sj_20_30","theta_sj in subjets 1 & 2", 10, 0, 0.5);   //jet pT 20 -> 30 GeV
+  _h_R04_z_sj_30= new TH1F("R04_z_sj_30","z_sj in subjets 1 & 2", 10, 0, 0.5);                     //jet pT > 30 GeV
+  _h_R04_theta_sj_30= new TH1F("R04_theta_sj_30","theta_sj in subjets 1 & 2", 10, 0, 0.5);         //jet pT > 30 GeV
+  // softdrop hists zcut = 0.1
+  _h_R04_z_g_5_10_01= new TH1F("R04_z_g_5_10","z_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);                    //jet pT 5 -> 10 GeV
+  _h_R04_theta_g_5_10_01= new TH1F("R04_theta_g_5_10","theta_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);        //jet pT 5 -> 10 GeV
+  _h_R04_z_g_10_20_01= new TH1F("R04_z_g_10_20","z_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);                  //jet pT 10 -> 20 GeV
+  _h_R04_theta_g_10_20_01= new TH1F("R04_theta_g_10_20","theta_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);      //jet pT 10 -> 20 GeV
+  _h_R04_z_g_20_30_01= new TH1F("R04_z_g_20_30","z_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);                  //jet pT 20 -> 30 GeV
+  _h_R04_theta_g_20_30_01= new TH1F("R04_theta_g_20_30","theta_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);      //jet pT 20 -> 30 GeV
+  _h_R04_z_g_30_01= new TH1F("R04_z_g_30","z_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);                        //jet pT > 30 GeV
+  _h_R04_theta_g_30_01= new TH1F("R04_theta_g_30","theta_g in subjets 1 & 2 w/ z_{cut} = 0.1 & #beta = 0.0", 10, 0, 0.5);            //jet pT > 30 GeV
+  // softdrop hists zcut = 0.2
+  _h_R04_z_g_5_10_02= new TH1F("R04_z_g_5_10","z_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);                    //jet pT 5 -> 10 GeV
+  _h_R04_theta_g_5_10_02= new TH1F("R04_theta_g_5_10","theta_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);        //jet pT 5 -> 10 GeV
+  _h_R04_z_g_10_20_02= new TH1F("R04_z_g_10_20","z_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);                  //jet pT 10 -> 20 GeV
+  _h_R04_theta_g_10_20_02= new TH1F("R04_theta_g_10_20","theta_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);      //jet pT 10 -> 20 GeV                                                 
+  _h_R04_z_g_20_30_02= new TH1F("R04_z_g_20_30","z_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);                  //jet pT 20 -> 30 GeV                                                 
+  _h_R04_theta_g_20_30_02= new TH1F("R04_theta_g_20_30","theta_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);      //jet pT 20 -> 30 GeV                                                 
+  _h_R04_z_g_30_02= new TH1F("R04_z_g_30","z_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);                        //jet pT > 30 GeV                                                     
+  _h_R04_theta_g_30_02= new TH1F("R04_theta_g_30","theta_g in subjets 1 & 2 w/ z_{cut} = 0.2 & #beta = 0.0", 10, 0, 0.5);            //jet pT > 30 GeV        
+
   // multiplicity hists
   _hmult_R04= new TH1F("mult_R04","total number of constituents inside R=0.4 jets", 30, 0, 30);
   _hmult_R04_pT_10_20GeV= new TH1F("mult_R04_pT_10_20GeV","total number of constituents inside R=0.4 jets with 10 < p_{T} < 20", 30, 0, 30);
   _hjetpT_R04 = new TH1F("jetpT_R04","jet transverse momentum for R=0.4 jets", 100, 0, 100);
   _hjeteta_R04 = new TH1F("jeteta_R04","jet pseudorapidity for R=0.4 jets", 50, -0.6, 0.6);
+ 
   // corellation hists
   correlation_theta_10_20 = new TH2D("correlation_theta_10_20", "Correlation Plot 10 < p_{T} < 20 [GeV/c]; R_{g}; #theta_{sj}", 20, 0, 0.5, 20, 0, 0.5);
   correlation_z_10_20 = new TH2D("correlation_z_10_20", "Correlation Plot; z_{g}; z_{sj}", 20, 0, 0.5, 20, 0, 0.5);   
@@ -394,8 +418,8 @@ int EMJetVal::process_event(PHCompositeNode *topNode)
 
 
 		  UE = UE * (1 + 2 * background_v2 * cos(2 * (tower_phi - background_Psi2)));
-		  double ETmp = tower->get_energy();
-		  double pt = tower->get_energy() / cosh(tower_eta);
+		  double ETmp = tower->get_energy() + UE;
+		  double pt = (tower->get_energy() + UE) / cosh(tower_eta);
 		  if(m_doUnsubJet){
 		    ETmp += UE;
 		    pt = ETmp / cosh(tower_eta);
@@ -436,114 +460,183 @@ int EMJetVal::process_event(PHCompositeNode *topNode)
 		  //! create a loop to run over the jets -
 		  
 		  for (int j = 0; j < (int)sortedJets_R04.size(); j++) {
-		    
-		    //	    std::cout << "working on reclustered jet " << j << " of " << sortedJets_R04.size() << std::endl;
-
 		    PseudoJet jet_reco = sortedJets_R04.at(j);
 		    if(fabs(jet_reco.eta()) > 0.6)
 		      continue;
-      
-		    // std::cout << "jet within eta of 0.6" << std::endl; 
-
 		    ClusterSequence clustSeq_R01_con(jet_reco.constituents() , jetDefAKT_R01 );
-		    //  std::cout << "made R=0.1 cluster sequence" << std::endl;
 		    std:: vector<PseudoJet> sortedJets_R01_con = sorted_by_pt( clustSeq_R01_con.inclusive_jets() );
-		    //  std::cout << "ran R=0.1 and sorted by pT" << std::endl;
-		    // std::cout << "number of subjets: " << sortedJets_R01_con.size() << std::endl;
-		    // std::cout << "passed here -476 -pseudojet" << std::endl
 		    if (sortedJets_R01_con.size() < 2){
-		      //  std::cout << "not enough subjets" << std::endl;
 		      continue;
 		    }		      
-
-		    //std:: cout << "at least 2 subjets" << std::endl;
-
 		    PseudoJet sj1 = sortedJets_R01_con.at(0);
 		    PseudoJet sj2 = sortedJets_R01_con.at(1);
-
-		    // std::cout << "sj1 pt=" << sj1.pt() << std::endl;
-		    // std::cout << "sj2 pt=" << sj2.pt() << std::endl;
 		    if (sj1.pt() < 3 || sj2.pt() < 3 )
 		      continue;
-		    // std::cout << "sj1 pt=" << sj1.pt() << std::endl;
-		    // std::cout << "sj2 pt=" << sj2.pt() << std::endl;
-		    // std::cout << "both are above 3" << std::endl;
-		    
 		    theta_sj = sj1.delta_R(sj2);
 		    z_sj = sj2.pt()/(sj2.pt()+sj1.pt());
 
-		    // std::cout << "theta_sj = " << theta_sj << "   z_sj = " << z_sj << std::endl;
-		   
+		    double z_cut = 0.1;
+		    double z_cut_02 = 0.2;
+		    double beta = 0.0;
+
 		    // 10 to 20 pT
-		    if (jet_reco.pt() > 10 && jet_reco.pt() < 20 ){
-		      // std::cout<<"sorted jets at "<<j<<" the pT = " << jet.pt()<<endl;
-		      // std::cout << "jet pt >10 & <20: " << jet_reco.pt() << std::endl;
-		      _hjetpT_R04->Fill(jet_reco.perp());
-		      pseudorapidity = jet_reco.eta();
-		      _hjeteta_R04->Fill(pseudorapidity);
-		      _hmult_R04->Fill(jet_reco.constituents().size());
+		    if (jet_reco.pt() > 5 && jet_reco.pt() < 10 ){
+		      //  _hjetpT_R04->Fill(jet_reco.perp());
+		      //   pseudorapidity = jet_reco.eta();
+		      //  _hjeteta_R04->Fill(pseudorapidity);
+		      //  _hmult_R04->Fill(jet_reco.constituents().size());
 
 		      ClusterSequence clustSeqCA(jet_reco.constituents(), jetDefCA);
 		      std::vector<PseudoJet> cambridgeJets = sorted_by_pt(clustSeqCA.inclusive_jets());
-
-		      // std::cout << "have CA sort jets: " << cambridgeJets.size() << std::endl;
-
 		      // SoftDrop parameters
-		      double z_cut = 0.10;
-		      double beta = 0.0;
+		      //  double z_cut = 0.10;
+		      //  double beta = 0.0;
 		      contrib::SoftDrop sd(beta, z_cut);
 		      //! get subjets
 		      if (!isnan(theta_sj) && !isnan(z_sj) && !isinf(theta_sj) && !isinf(z_sj)){
-			  _h_R04_z_sj_10_20->Fill(z_sj);
-			  _h_R04_theta_sj_10_20->Fill(theta_sj);
+			  _h_R04_z_sj_5_10->Fill(z_sj);
+			  _h_R04_theta_sj_5_10->Fill(theta_sj);
 			}
-		    
-		      // std::cout << "filled some histos" << std::endl;
 		      // Apply SoftDrop to the jet
 		      PseudoJet sd_jet = sd(jet_reco);
 		      // std::cout << "ran sd" << std::endl;
 		      if (sd_jet == 0)
-
 			continue;
-		      // std::cout << "sd jet exists" << std::endl;
 		       double delta_R_subjets = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
 		       double z_subjets = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
-
-		      _h_R04_z_g_10_20->Fill(z_subjets);
-		      _h_R04_theta_g_10_20->Fill(delta_R_subjets);
-
-		      correlation_theta_10_20->Fill(delta_R_subjets, theta_sj);
-		      correlation_z_10_20->Fill(z_subjets, z_sj);
-		          
+		      _h_R04_z_g_5_10_01->Fill(z_subjets);
+		      _h_R04_theta_g_5_10_01->Fill(delta_R_subjets);
+		      //  correlation_theta_10_20->Fill(delta_R_subjets, theta_sj);
+		      //  correlation_z_10_20->Fill(z_subjets, z_sj);
 		      // SoftDrop failed, handle the case as needed
 		      // e.g., skip this jet or perform alternative analysis
-		    } else {
-		      _hmult_R04_pT_10_20GeV->Fill(jet_reco.constituents().size());
+		      //  double z_cut_02 = 0.20;
+		      contrib::SoftDrop sd(beta, z_cut_02);
+                      // Apply SoftDrop to the jet                                                                           
+                      PseudoJet sd_jet_02 = sd(jet_reco);
+                      // std::cout << "ran sd" << std::endl;                                                                                                                                               
+                      if (sd_jet_02 == 0)
+                        continue;
+		      double delta_R_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+		      double z_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_5_10_02->Fill(z_subjets_02);
+                      _h_R04_theta_g_5_10_02->Fill(delta_R_subjets_02);
+                      // e.g., skip this jet or perform alternative analysis      
+		      //		    } else {
+		      // _hmult_R04_pT_10_20GeV->Fill(jet_reco.constituents().size());
+		    } //////////////////////////////////////////////////////////////////////////////////////////////////// end 5 -> 10 GeV loop
+
+		    // 10 to 20 pT                                                                                                                                                                         
+                    if (jet_reco.pt() > 10 && jet_reco.pt() < 20 ){
+                    
+                      ClusterSequence clustSeqCA(jet_reco.constituents(), jetDefCA);
+		      std::vector<PseudoJet> cambridgeJets = sorted_by_pt(clustSeqCA.inclusive_jets());
+                      // SoftDrop parameters                                                                                                                                                                
+		      //  double z_cut = 0.10;
+		      //  double beta = 0.0;
+		      contrib::SoftDrop sd(beta, z_cut);
+                      //! get subjets                                                                                                                                                                       
+                      if (!isnan(theta_sj) && !isnan(z_sj) && !isinf(theta_sj) && !isinf(z_sj)){
+			_h_R04_z_sj_10_20->Fill(z_sj);
+			_h_R04_theta_sj_10_20->Fill(theta_sj);
+		      }
+                      // Apply SoftDrop to the jet                                                                                                                                                          
+                      PseudoJet sd_jet = sd(jet_reco);
+                      // std::cout << "ran sd" << std::endl;                                                                                                                                                
+                      if (sd_jet == 0)
+                        continue;
+		      double delta_R_subjets = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+		      double z_subjets = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_10_20_01->Fill(z_subjets);
+                      _h_R04_theta_g_10_20_01->Fill(delta_R_subjets);
+ 
+		      //  double z_cut_02 = 0.20;
+		      contrib::SoftDrop sd(beta, z_cut_02);
+                      // Apply SoftDrop to the jet                                                                                                                                                          
+                      PseudoJet sd_jet_02 = sd(jet_reco);
+                      // std::cout << "ran sd" << std::endl;                                                                                                                                               
+                      if (sd_jet_02 == 0)
+                        continue;
+                      double delta_R_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+                      double z_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_10_20_02->Fill(z_subjets_02);
+                      _h_R04_theta_g_10_20_02->Fill(delta_R_subjets_02);
+                      // e.g., skip this jet or perform alternative analysis                                                                                                                               
+                    }
+		    ////////////////////////////////////////////////////////////////////// End loop over 10 -> 20 GeV 
+		    // 20 to 30 pT                                                                                                                                                                         
+                    if (jet_reco.pt() > 20 && jet_reco.pt() < 30 ){
+                    
+                      ClusterSequence clustSeqCA(jet_reco.constituents(), jetDefCA);
+		      std::vector<PseudoJet> cambridgeJets = sorted_by_pt(clustSeqCA.inclusive_jets());
+		      //  double z_cut = 0.10;
+		      //  double beta = 0.0;
+		      contrib::SoftDrop sd(beta, z_cut);
+                      if (!isnan(theta_sj) && !isnan(z_sj) && !isinf(theta_sj) && !isinf(z_sj)){
+                        _h_R04_z_sj_20_30->Fill(z_sj);
+                        _h_R04_theta_sj_20_30->Fill(theta_sj);
+                      }
+		      PseudoJet sd_jet = sd(jet_reco);
+                    
+		      if (sd_jet == 0)
+                        continue;
+                      double delta_R_subjets = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+                      double z_subjets = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_20_30_01->Fill(z_subjets);
+                      _h_R04_theta_g_20_30_01->Fill(delta_R_subjets);
+
+		      // double z_cut_02 = 0.20;
+		      contrib::SoftDrop sd(beta, z_cut_02);
+                      // Apply SoftDrop to th jet
+                      PseudoJet sd_jet_02 = sd(jet_reco);
+                      // std::cout << "ran sd" << std::endl;                                                                                                                                               
+                      if (sd_jet_02 == 0)
+                        continue;
+                      double delta_R_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+                      double z_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_20_30_02->Fill(z_subjets_02);
+                      _h_R04_theta_g_20_30_02->Fill(delta_R_subjets_02);
 		    }
-    
-		    //! jet loop
-		    // Rjet = 0.4 End
+		    //////////////////////////////////////////////////////////////////////// End loop over 20 -> 30 GeV
+		    // 30 pT or more                                                                                                                                                                       
+                    if (jet_reco.pt() > 30 ){
 
-		    //filled nEvent in histogram
+                      ClusterSequence clustSeqCA(jet_reco.constituents(), jetDefCA);
+		      std::vector<PseudoJet> cambridgeJets = sorted_by_pt(clustSeqCA.inclusive_jets());
+		      //  double z_cut = 0.10;
+		      //  double beta = 0.0;
+		      contrib::SoftDrop sd(beta, z_cut);
+                      if (!isnan(theta_sj) && !isnan(z_sj) && !isinf(theta_sj) && !isinf(z_sj)){
+                        _h_R04_z_sj_30->Fill(z_sj);
+                        _h_R04_theta_sj_30->Fill(theta_sj);
+                      }
+                      PseudoJet sd_jet = sd(jet_reco);
+
+                      if (sd_jet == 0)
+                        continue;
+                      double delta_R_subjets = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+                      double z_subjets = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_30_01->Fill(z_subjets);
+                      _h_R04_theta_g_30_01->Fill(delta_R_subjets);
+
+		      //  double z_cut_02 = 0.20;
+		      contrib::SoftDrop sd(beta, z_cut_02);
+                      // Apply SoftDrop to th jet                                                                                                                                                           
+                      PseudoJet sd_jet_02 = sd(jet_reco);
+                      // std::cout << "ran sd" << std::endl;                                                                                                                                               
+                      if (sd_jet_02 == 0)
+                        continue;
+                      double delta_R_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
+                      double z_subjets_02 = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
+                      _h_R04_z_g_30_02->Fill(z_subjets_02);
+                      _h_R04_theta_g_30_02->Fill(delta_R_subjets_02);
+                    }
+		    /////////////////////////////////////////////////////////////////////// End loop over 30+ GeV
 		    _hmult_R04->Fill(m_nJet);
-		    
-		    //		    std::cout << "iZ = " << nEvent << std::endl;
-		    // std::cout << "finished jet " << j << std::endl;
-
 		  }//! event loop ends for pT
-		  
-		  
-		  //std::cout << "finished loop over reclustered jets" << std::endl;
-
 		  // End of event loop. Statistics. Histograms. Done.
-		  
-		  
 		  m_nJet++;
-		  // std::cout << "m_nJet: " << m_nJet << std::endl;
     }
-
-  // std::cout << "finised loop over original jets" << std::endl;
-  
 //get truth jets
 if(m_doTruthJets)
   {
