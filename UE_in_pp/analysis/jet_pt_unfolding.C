@@ -103,13 +103,15 @@ void jet_pt_unfolding(string filename = "jet_pt_unfolding.root") {
 
     TChain chain("T");
     const char* inputDirectory = "/sphenix/tg/tg01/jets/egm2153/";
-    //TString wildcardPath = TString::Format("%sJetValOutput/sim_truth_jet_output.root", inputDirectory); // run 15 dataset
-    //chain.Add(wildcardPath);
+    TString wildcardPath = TString::Format("%sJetValOutput/sim_truth_jet_output.root", inputDirectory); // run 15 dataset
+    chain.Add(wildcardPath);
     
-    for (int i = 0; i < 1000; i++) {
-        TString wildcardPath = TString::Format("%sUEinppOutput/sim_run22_jet10_output_%d.root", inputDirectory, i); // run 22 dataset
-        chain.Add(wildcardPath);
-    }
+    
+    //for (int i = 0; i < 1000; i++) {
+    //    TString wildcardPath = TString::Format("%sUEinppOutput/sim_run21_jet10_output_%d.root", inputDirectory, i); // run 22 dataset
+    //    chain.Add(wildcardPath);
+    //}
+    
 
     int m_event;
     int nJet;
@@ -175,8 +177,16 @@ void jet_pt_unfolding(string filename = "jet_pt_unfolding.root") {
         if (zvtx < -30 || zvtx > 30) { continue; }
         if (negJet) { continue; }
 
+        
+        std::vector<float> sort_pt;
+        if (truthPt->size() > 1) {
+            sort_pt = *truthPt;
+            std::sort(sort_pt.begin(), sort_pt.end(), std::greater<>());
+            if (sort_pt[0] < 10.0) std::cout << sort_pt[0] << " " << sort_pt[1] << std::endl;
+        }
+        
         /*
-        // implemented to match truth jet eta cut to reco jet eta cut 
+        // implemented to match truth jet eta cut to reco jet eta cut for run15 dataset
         for (int i = 0; i < truthEta->size();) {
             if (fabs(truthEta->at(i)) > 0.7) {
                 truthEta->erase(truthEta->begin() + i);
@@ -188,6 +198,7 @@ void jet_pt_unfolding(string filename = "jet_pt_unfolding.root") {
             }
         }
         int nTruthJet = truthPt->size();
+        // implemented to match truth jet eta cut to reco jet eta cut for run15 dataset
         */
 
         // indices to find leading and subleading jets 
