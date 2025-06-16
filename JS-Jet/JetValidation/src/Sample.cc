@@ -35,7 +35,7 @@ using namespace fastjet;
 
 namespace {
   // -- GLOBAL pt bins --
-  std::vector<float> pt_bins = {30, 35, 40, 45, 50, 55, 60};
+  std::vector<float> pt_bins = {30, 35, 40, 45/*, 50, 55, 60*/};
   int FindPtBin(float pt) {
     for (size_t i = 0; i < pt_bins.size() - 1; ++i) {
       if (pt >= pt_bins[i] && pt < pt_bins[i + 1]) return i;
@@ -321,6 +321,10 @@ int JetUnfoldingSubjets::Init(PHCompositeNode*) {
 
   // z_sj histograms and responses per pt bin
   for (size_t i = 0; i < pt_bins.size() - 1; ++i) {
+    if (pt_bins.size() < 2) {
+      std::cerr << "JetUnfoldingSubjets::Init - ERROR: pt_bins must have at least two entries!" << std::endl;
+      return Fun4AllReturnCodes::ABORTEVENT;
+    }
     float ptlow = pt_bins[i];
     float pthigh = pt_bins[i + 1];
     std::string label = Form("ptbin_%d_%d", (int)ptlow, (int)pthigh);
@@ -334,7 +338,12 @@ int JetUnfoldingSubjets::Init(PHCompositeNode*) {
                             20, 0, 0.5);
 
     RooUnfoldResponse* resp = new RooUnfoldResponse(hReco, hTruth);
-
+    if (!hReco || !hTruth || !resp) {
+      std::cerr << "JetUnfoldingSubjets::Init - ERROR: Failed to allocate histograms or response for pt bin [" 
+		<< ptlow << ", " << pthigh << "]" << std::endl;
+      return Fun4AllReturnCodes::ABORTEVENT;
+    }
+    
     m_hRecoZsjMatched.push_back(hReco);
     m_hTruthZsjMatched.push_back(hTruth);
     m_responseZsj.push_back(resp);
@@ -397,16 +406,21 @@ int JetUnfoldingSubjets::End(PHCompositeNode*) {
   hResponseMatrix->SetName("responsePt");
   hResponseMatrix->Write();
 
-  // Unfold z_sj per pt bin
+  // Unfold z_sj per pt bin  
   for (size_t i = 0; i < m_responseZsj.size(); ++i) {
+    if (m_responseZsj[i]->Hmeasured()->GetEntries() == 0 ||
+	m_responseZsj[i]->Htruth()->GetEntries() == 0) {
+      std::cout << "Skipping unfolding for pt bin " << i << " (empty response)" << std::endl;
+      continue;
+    }
     RooUnfoldBayes unfold(m_responseZsj[i], m_hRecoZsjMatched[i], 4);
     unfold.SetNToys(0);
     m_hRecoZsjUnfolded[i] = (TH1F*) unfold.Hunfold(RooUnfolding::kErrors);
-
+    
     if (m_hRecoZsjUnfolded[i]) {
       m_hRecoZsjUnfolded[i]->Write(Form("hRecoZsjUnfolded_ptbin_%zu", i));
     }
-
+    
     // Give the response matrix a unique name before writing!
     TH2D* thisResponse = (TH2D*) m_responseZsj[i]->Hresponse();
     thisResponse->SetName(Form("responseZsj_ptbin_%zu", i));
