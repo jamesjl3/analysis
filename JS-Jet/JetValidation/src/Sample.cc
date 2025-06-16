@@ -6,7 +6,6 @@
 #include <phool/getClass.h>
 #include <phool/PHCompositeNode.h>
 #include <jetbase/JetContainer.h>
-#include <jetbase/JetMap.h>
 #include <jetbase/Jet.h>
 #include <centrality/CentralityInfo.h>
 #include <calobase/TowerInfoContainer.h>
@@ -20,61 +19,62 @@
 #include <g4main/PHG4Particle.h>
 #include "RooUnfoldResponse.h"
 #include "RooUnfoldBayes.h"
-
 #include <TVector2.h>
 #include <TH1F.h>
-#include <TH2F.h>
 #include <TFile.h>
 #include <TTree.h>
-
 #include <cmath>
 #include <map>
 #include <set>
 #include <tuple>
 #include <algorithm>
+#include <iostream>
 
 using namespace std;
 using namespace fastjet;
 
-// -- GLOBAL pt bins --
-std::vector<float> pt_bins = {30, 35, 40, 45, 50, 55, 60};
-
-// -- FindPtBin --
-int FindPtBin(float pt) {
-  for (size_t i = 0; i < pt_bins.size() - 1; ++i) {
-    if (pt >= pt_bins[i] && pt < pt_bins[i + 1]) return i;
+namespace {
+  // -- GLOBAL pt bins --
+  std::vector<float> pt_bins = {30, 35, 40, 45, 50, 55, 60};
+  int FindPtBin(float pt) {
+    for (size_t i = 0; i < pt_bins.size() - 1; ++i) {
+      if (pt >= pt_bins[i] && pt < pt_bins[i + 1]) return i;
+    }
+    return -1;
   }
-  return -1;
+  float deltaR(Jet* a, Jet* b) {
+    float deta = a->get_eta() - b->get_eta();
+    float dphi = TVector2::Phi_mpi_pi(a->get_phi() - b->get_phi());
+    return sqrt(deta * deta + dphi * dphi);
+  }
 }
 
-// -- Helper deltaR --
-float deltaR(Jet* a, Jet* b) {
-  float deta = a->get_eta() - b->get_eta();
-  float dphi = TVector2::Phi_mpi_pi(a->get_phi() - b->get_phi());
-  return sqrt(deta * deta + dphi * dphi);
-}
-
-// -- Constructor / Destructor --
+// --- Constructor & Destructor ---
 JetUnfoldingSubjets::JetUnfoldingSubjets(const std::string& recojetname,
-                                         const std::string& truthjetname,
-                                         const std::string& outputfilename)
-  : SubsysReco("JetUnfoldingSubjets"),
-    m_recoJetName(recojetname),
-    m_truthJetName(truthjetname),
-    m_outputFileName(outputfilename),
-    m_etaRange(-0.7, 0.7),
-    m_ptRange(30, 60),
-    m_doTruthJets(1),
-    m_T(nullptr),
-    m_event(-1)
+                                       const std::string& truthjetname,
+                                       const std::string& outputfilename)
+  : SubsysReco("JetUnfoldingSubjets_" + recojetname + "_" + truthjetname)
+  , m_recoJetName(recojetname)
+  , m_truthJetName(truthjetname)
+  , m_outputFileName(outputfilename)
+  , m_etaRange(-0.7, 0.7)
+  , m_ptRange(30, 60)
+  , m_event(-1)
+  , m_T(nullptr)
+  , m_response1D(nullptr)
+  , hRecoJetPtMatched(nullptr)
+  , hTruthJetPtMatched(nullptr)
+  , hRecoJetPtUnfolded(nullptr)
 {}
 
 JetUnfoldingSubjets::~JetUnfoldingSubjets() {}
 
-// -- Jet Matching --
-void JetUnfoldingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* truthJets, float dRMax) {
+// --- Matching ---
+void JetUnfoldingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* truthJets, float dRMax)
+{
   recoToTruth.clear();
   truthToReco.clear();
+
   std::vector<std::tuple<float, Jet*, Jet*>> pairs;
 
   for (auto reco : *recoJets) {
@@ -93,12 +93,11 @@ void JetUnfoldingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* tr
   }
 
   std::sort(pairs.begin(), pairs.end());
-  std::set<Jet*> matchedReco, matchedTruth;
 
+  std::set<Jet*> matchedReco, matchedTruth;
   for (const auto& tup : pairs) {
     Jet* reco = std::get<1>(tup);
     Jet* truth = std::get<2>(tup);
-
     if (matchedReco.count(reco) == 0 && matchedTruth.count(truth) == 0) {
       recoToTruth[reco] = truth;
       truthToReco[truth] = reco;
@@ -108,12 +107,13 @@ void JetUnfoldingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* tr
   }
 }
 
-// -- Build PseudoJets (reco) --
-std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildPseudoJets(Jet* jet, TowerInfoContainer* em, TowerInfoContainer* ih, TowerInfoContainer* oh,
-                                                                    RawTowerGeomContainer* geomEM, RawTowerGeomContainer* geomOH,
-                                                                    TowerBackground* bg, float v2, float psi2, bool doUnsub) {
+// --- Build PseudoJets (reco) ---
+std::vector<fastjet::PseudoJet>
+JetUnfoldingSubjets::BuildPseudoJets(Jet* jet, TowerInfoContainer* em, TowerInfoContainer* ih, TowerInfoContainer* oh,
+                                     RawTowerGeomContainer* geomEM, RawTowerGeomContainer* geomOH,
+                                     TowerBackground* bg, float v2, float psi2, bool doUnsub)
+{
   std::vector<fastjet::PseudoJet> particles;
-
   for (auto comp : jet->get_comp_vec()) {
     TowerInfo* tower = nullptr;
     unsigned int ch = comp.second;
@@ -126,8 +126,10 @@ std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildPseudoJets(Jet* jet, T
       int ieta = em->getTowerEtaBin(calokey);
       int iphi = em->getTowerPhiBin(calokey);
       auto key = RawTowerDefs::encode_towerid(RawTowerDefs::HCALIN, ieta, iphi);
-      eta = geomEM->get_tower_geometry(key)->get_eta();
-      phi = geomEM->get_tower_geometry(key)->get_phi();
+      auto geom = geomEM->get_tower_geometry(key);
+      if (!geom) continue;
+      eta = geom->get_eta();
+      phi = geom->get_phi();
       UE = bg->get_UE(0).at(ieta);
     } else if (comp.first == 15 || comp.first == 30) {
       tower = ih->get_tower_at_channel(ch);
@@ -136,8 +138,10 @@ std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildPseudoJets(Jet* jet, T
       int ieta = ih->getTowerEtaBin(calokey);
       int iphi = ih->getTowerPhiBin(calokey);
       auto key = RawTowerDefs::encode_towerid(RawTowerDefs::HCALIN, ieta, iphi);
-      eta = geomEM->get_tower_geometry(key)->get_eta();
-      phi = geomEM->get_tower_geometry(key)->get_phi();
+      auto geom = geomEM->get_tower_geometry(key);
+      if (!geom) continue;
+      eta = geom->get_eta();
+      phi = geom->get_phi();
       UE = bg->get_UE(1).at(ieta);
     } else if (comp.first == 16 || comp.first == 31) {
       tower = oh->get_tower_at_channel(ch);
@@ -146,8 +150,10 @@ std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildPseudoJets(Jet* jet, T
       int ieta = oh->getTowerEtaBin(calokey);
       int iphi = oh->getTowerPhiBin(calokey);
       auto key = RawTowerDefs::encode_towerid(RawTowerDefs::HCALOUT, ieta, iphi);
-      eta = geomOH->get_tower_geometry(key)->get_eta();
-      phi = geomOH->get_tower_geometry(key)->get_phi();
+      auto geom = geomOH->get_tower_geometry(key);
+      if (!geom) continue;
+      eta = geom->get_eta();
+      phi = geom->get_phi();
       UE = bg->get_UE(2).at(ieta);
     } else continue;
 
@@ -162,14 +168,14 @@ std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildPseudoJets(Jet* jet, T
 
     particles.emplace_back(px, py, pz, energy);
   }
-
   return particles;
 }
 
-// -- Build Truth PseudoJets --
-std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildTruthPseudoJets(Jet* truthJet, PHG4TruthInfoContainer* truthInfo) {
+// --- Build PseudoJets (truth) ---
+std::vector<fastjet::PseudoJet>
+JetUnfoldingSubjets::BuildTruthPseudoJets(Jet* truthJet, PHG4TruthInfoContainer* truthInfo)
+{
   std::vector<fastjet::PseudoJet> particles;
-
   for (auto comp : truthJet->get_comp_vec()) {
     unsigned int truth_id = comp.second;
     PHG4Particle *particle = truthInfo ? truthInfo->GetParticle(truth_id) : nullptr;
@@ -182,16 +188,16 @@ std::vector<fastjet::PseudoJet> JetUnfoldingSubjets::BuildTruthPseudoJets(Jet* t
 
     particles.emplace_back(px, py, pz, e);
   }
-
   return particles;
 }
 
-// -- Analyze Matched Jets --
+// --- Analyze Matched Jets ---
 void JetUnfoldingSubjets::AnalyzeMatchedJets(JetContainer* recoJets,
                                              TowerInfoContainer* em, TowerInfoContainer* ih, TowerInfoContainer* oh,
                                              RawTowerGeomContainer* geomEM, RawTowerGeomContainer* geomOH,
                                              TowerBackground* bg, float v2, float psi2,
-                                             PHG4TruthInfoContainer* truthInfo) {
+                                             PHG4TruthInfoContainer* truthInfo)
+{
   JetDefinition jetDefAKT_R04(antikt_algorithm, 0.4);
   JetDefinition jetDefAKT_R01(antikt_algorithm, 0.1);
 
@@ -226,18 +232,32 @@ void JetUnfoldingSubjets::AnalyzeMatchedJets(JetContainer* recoJets,
     auto subjets = sorted_by_pt(subClust.inclusive_jets());
     if (subjets.size() >= 2 && subjets[0].pt() >= 3 && subjets[1].pt() >= 3) {
       double reco_z_sj = subjets[1].pt() / (subjets[0].pt() + subjets[1].pt());
-      int bin = FindPtBin(truthJet->get_pt());
-      if (bin >= 0) {
-        m_hRecoZsjMatched[bin]->Fill(reco_z_sj);
-        m_responseZsj[bin]->Fill(reco_z_sj, reco_z_sj); // Diagonal fill for reco/truth
+
+      // Now, get truth z_sj for matched truth jet
+      auto truth_particles = BuildTruthPseudoJets(truthJet, truthInfo);
+      ClusterSequence truthClustSeq(truth_particles, jetDefAKT_R04);
+      auto truthjets = sorted_by_pt(truthClustSeq.inclusive_jets());
+      if (!truthjets.empty()) {
+        PseudoJet truth_leading = truthjets[0];
+        ClusterSequence truthSubClust(truth_leading.constituents(), jetDefAKT_R01);
+        auto truthsubjets = sorted_by_pt(truthSubClust.inclusive_jets());
+        if (truthsubjets.size() >= 2 && truthsubjets[0].pt() >= 3 && truthsubjets[1].pt() >= 3) {
+          double truth_z_sj = truthsubjets[1].pt() / (truthsubjets[0].pt() + truthsubjets[1].pt());
+          int bin = FindPtBin(truthJet->get_pt());
+          if (bin >= 0 && (size_t)bin < m_hRecoZsjMatched.size()) {
+            m_hRecoZsjMatched[bin]->Fill(reco_z_sj);
+            m_responseZsj[bin]->Fill(reco_z_sj, truth_z_sj);
+          }
+        }
       }
     }
   }
 }
 
-// -- Analyze Truth Jets --
+// --- Analyze Truth Jets ---
 void JetUnfoldingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
-                                           PHG4TruthInfoContainer* truthInfo) {
+                                           PHG4TruthInfoContainer* truthInfo)
+{
   JetDefinition jetDefAKT_R04(antikt_algorithm, 0.4);
   JetDefinition jetDefAKT_R01(antikt_algorithm, 0.1);
 
@@ -245,7 +265,8 @@ void JetUnfoldingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
     if (truthJet->get_pt() < 30.0) continue;
     if (fabs(truthJet->get_eta()) > 0.7) continue;
 
-    if (truthToReco.find(truthJet) != truthToReco.end()) continue; // Skip matched
+    // Only "miss" if not matched
+    if (truthToReco.find(truthJet) != truthToReco.end()) continue;
 
     hTruthJetPtMatched->Fill(truthJet->get_pt());
     m_response1D->Miss(truthJet->get_pt());
@@ -261,7 +282,7 @@ void JetUnfoldingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
     if (truthsubjets.size() >= 2 && truthsubjets[0].pt() >= 3 && truthsubjets[1].pt() >= 3) {
       double truth_z_sj = truthsubjets[1].pt() / (truthsubjets[0].pt() + truthsubjets[1].pt());
       int bin = FindPtBin(truthJet->get_pt());
-      if (bin >= 0) {
+      if (bin >= 0 && (size_t)bin < m_hTruthZsjMatched.size()) {
         m_hTruthZsjMatched[bin]->Fill(truth_z_sj);
         m_responseZsj[bin]->Miss(truth_z_sj);
       }
@@ -272,11 +293,8 @@ void JetUnfoldingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
 int JetUnfoldingSubjets::Init(PHCompositeNode*) {
   PHTFileServer::get().open(m_outputFileName, "RECREATE");
 
-  // Setup tree
   m_T = new TTree("T", "Jet Tree");
   m_T->Branch("event", &m_event, "event/I");
-  m_T->Branch("cent", &m_centrality, "cent/F");
-  m_T->Branch("b", &m_impactparam, "b/F");
   m_T->Branch("pt", &m_pt);
   m_T->Branch("eta", &m_eta);
   m_T->Branch("phi", &m_phi);
@@ -328,6 +346,7 @@ int JetUnfoldingSubjets::Init(PHCompositeNode*) {
 
 int JetUnfoldingSubjets::process_event(PHCompositeNode* topNode) {
   ++m_event;
+
   m_pt.clear(); m_eta.clear(); m_phi.clear();
   m_pt_truth.clear(); m_eta_truth.clear(); m_phi_truth.clear();
   recoToTruth.clear();
@@ -341,23 +360,17 @@ int JetUnfoldingSubjets::process_event(PHCompositeNode* topNode) {
   RawTowerGeomContainer *geomEM = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALIN");
   RawTowerGeomContainer *geomOH = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALOUT");
   TowerBackground* bg = findNode::getClass<TowerBackground>(topNode, "TowerInfoBackground_Sub2");
-  CentralityInfo* cent_node = findNode::getClass<CentralityInfo>(topNode, "CentralityInfo");
   PHG4TruthInfoContainer* truthInfo = findNode::getClass<PHG4TruthInfoContainer>(topNode, "G4TruthInfo");
 
-  if (!jets || !jetsMC || !towersEM3 || !towersIH3 || !towersOH3 || !geomEM || !geomOH || !bg || !cent_node || !truthInfo) {
+  if (!jets || !jetsMC || !towersEM3 || !towersIH3 || !towersOH3 || !geomEM || !geomOH || !bg || !truthInfo) {
     return Fun4AllReturnCodes::ABORTRUN;
   }
-
-  m_centrality = cent_node->get_centile(CentralityInfo::PROP::bimp);
-  m_impactparam = cent_node->get_quantity(CentralityInfo::PROP::bimp);
-  float v2 = bg->get_v2();
-  float psi2 = bg->get_Psi2();
 
   // Matching
   MatchJets1to1(jets, jetsMC, 0.2);
 
   // Analyze matched jets
-  AnalyzeMatchedJets(jets, towersEM3, towersIH3, towersOH3, geomEM, geomOH, bg, v2, psi2, truthInfo);
+  AnalyzeMatchedJets(jets, towersEM3, towersIH3, towersOH3, geomEM, geomOH, bg, bg->get_v2(), bg->get_Psi2(), truthInfo);
 
   // Analyze truth jets
   AnalyzeTruthJets(jetsMC, truthInfo);
@@ -367,11 +380,9 @@ int JetUnfoldingSubjets::process_event(PHCompositeNode* topNode) {
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
-
 int JetUnfoldingSubjets::End(PHCompositeNode*) {
   PHTFileServer::get().cd(m_outputFileName);
 
-  // Write tree
   m_T->Write();
 
   // Unfold pT
@@ -382,11 +393,11 @@ int JetUnfoldingSubjets::End(PHCompositeNode*) {
   hRecoJetPtMatched->Write();
   hTruthJetPtMatched->Write();
   hRecoJetPtUnfolded->Write();
-
   TH2D* hResponseMatrix = (TH2D*) m_response1D->Hresponse();
-  hResponseMatrix->Write("responsePt");
+  hResponseMatrix->SetName("responsePt");
+  hResponseMatrix->Write();
 
-  // Unfold z_sj
+  // Unfold z_sj per pt bin
   for (size_t i = 0; i < m_responseZsj.size(); ++i) {
     RooUnfoldBayes unfold(m_responseZsj[i], m_hRecoZsjMatched[i], 4);
     unfold.SetNToys(0);
@@ -396,15 +407,17 @@ int JetUnfoldingSubjets::End(PHCompositeNode*) {
       m_hRecoZsjUnfolded[i]->Write(Form("hRecoZsjUnfolded_ptbin_%zu", i));
     }
 
-    m_hRecoZsjMatched[i]->Write();
-    m_hTruthZsjMatched[i]->Write();
-    m_responseZsj[i]->Hresponse()->Write(Form("m_responseZsj_%zu", i));
+    // Give the response matrix a unique name before writing!
+    TH2D* thisResponse = (TH2D*) m_responseZsj[i]->Hresponse();
+    thisResponse->SetName(Form("responseZsj_ptbin_%zu", i));
+    thisResponse->Write();
   }
 
   std::cout << "Unfolded z_sj for " << m_responseZsj.size() << " pt bins written." << std::endl;
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
+
 int JetUnfoldingSubjets::Reset(PHCompositeNode* /*topNode*/) {
   std::cout << "JetUnfoldingSubjets::Reset(PHCompositeNode* topNode) being Reset" << std::endl;
   return Fun4AllReturnCodes::EVENT_OK;
