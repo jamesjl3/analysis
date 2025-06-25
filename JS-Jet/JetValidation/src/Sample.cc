@@ -67,19 +67,58 @@ JetUnfoldingSubjets::JetUnfoldingSubjets(const std::string& recojetname,
       hTruthJetPtMatched(nullptr),
       hRecoJetPtUnfolded(nullptr)
 {}
-
+/*
 JetUnfoldingSubjets::~JetUnfoldingSubjets() {
-  // Delete RooUnfoldResponse objects before their associated histograms
-  if (m_response1D) { delete m_response1D; m_response1D = nullptr; }
-  for (auto& r : m_responseZsj) { if (r) { delete r; r = nullptr; } }
+  // RooUnfoldResponse clean-up
+  if (m_response1D) {
+    delete m_response1D;
+    m_response1D = nullptr;
+  }
 
-  // Now delete histograms
-  if (hRecoJetPtMatched)    { delete hRecoJetPtMatched;    hRecoJetPtMatched = nullptr; }
-  if (hTruthJetPtMatched)   { delete hTruthJetPtMatched;   hTruthJetPtMatched = nullptr; }
-  if (hRecoJetPtUnfolded)   { delete hRecoJetPtUnfolded;   hRecoJetPtUnfolded = nullptr; }
-  for (auto& h : m_hRecoZsjMatched)    { if (h) { delete h; h = nullptr; } }
-  for (auto& h : m_hTruthZsjMatched)   { if (h) { delete h; h = nullptr; } }
-  for (auto& h : m_hRecoZsjUnfolded)   { if (h) { delete h; h = nullptr; } }
+  for (auto& r : m_responseZsj) {
+    delete r;
+    r = nullptr;
+  }
+
+  // Delete matched z_sj histograms (we own them)
+  for (auto* h : m_hRecoZsjMatched) {
+    delete h;
+  }
+  m_hRecoZsjMatched.clear();
+
+  for (auto* h : m_hTruthZsjMatched) {
+    delete h;
+  }
+  m_hTruthZsjMatched.clear();
+
+  // These were cloned from Hunfold and written, do not delete
+  m_hRecoZsjUnfolded.clear();
+
+  // Jet pT matched histograms (owned by us)
+  delete hRecoJetPtMatched;
+  hRecoJetPtMatched = nullptr;
+
+  delete hTruthJetPtMatched;
+  hTruthJetPtMatched = nullptr;
+
+  // Do not delete hRecoJetPtUnfolded: written clone
+  hRecoJetPtUnfolded = nullptr;
+}
+*/
+JetUnfoldingSubjets::~JetUnfoldingSubjets() {
+  /*  if (m_response1D) { delete m_response1D; m_response1D = nullptr; }
+  std::cout << "Reached line " << __LINE__ << std::endl;
+  for (auto& r : m_responseZsj) { delete r; r = nullptr; }
+  std::cout << "Reached line " << __LINE__ << std::endl;
+  delete hRecoJetPtMatched; hRecoJetPtMatched = nullptr;
+  std::cout << "Reached line " << __LINE__ << std::endl;
+  delete hTruthJetPtMatched; hTruthJetPtMatched = nullptr;
+  std::cout << "Reached line " << __LINE__ << std::endl;
+  delete hRecoJetPtUnfolded; hRecoJetPtUnfolded = nullptr;
+  std::cout << "Reached line " << __LINE__ << std::endl;
+  // DO NOT delete m_hRecoZsjUnfolded[i]; let ROOT manage it or let them leak safely
+  m_hRecoZsjUnfolded.clear();
+  std::cout << "Reached line " << __LINE__ << std::endl;*/
 }
 
 void JetUnfoldingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* truthJets, float dRMax) {
@@ -268,17 +307,30 @@ int JetUnfoldingSubjets::Init(PHCompositeNode*) {
     hRecoJetPtMatched->SetDirectory(nullptr);
     hTruthJetPtMatched->SetDirectory(nullptr);
 
+    m_hRecoZsjMatched.clear();
+    m_hTruthZsjMatched.clear();
+    m_responseZsj.clear();
+    m_hRecoZsjUnfolded.clear();
+
+    // Loop over z_sj pt bins
     for (size_t i = 0; i < pt_bins.size() - 1; ++i) {
-        float ptlow = pt_bins[i], pthigh = pt_bins[i + 1];
-        std::string label = Form("ptbin_%d_%d", (int)ptlow, (int)pthigh);
-        auto* hReco = new TH1F(("hRecoZsj_" + label).c_str(),
-			       Form("Reco z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh), 20, 0, 0.5);
-	auto* hTruth = new TH1F(("hTruthZsj_" + label).c_str(),
-				Form("Truth z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh), 20, 0, 0.5);
+        float ptlow = pt_bins[i];
+        float pthigh = pt_bins[i + 1];
+        std::string label = Form("ptbin_%d_%d", static_cast<int>(ptlow), static_cast<int>(pthigh));
+
+        TH1F* hReco = new TH1F(("hRecoZsj_" + label).c_str(),
+                               Form("Reco z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
+                               20, 0, 0.5);
+        TH1F* hTruth = new TH1F(("hTruthZsj_" + label).c_str(),
+                                Form("Truth z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
+                                20, 0, 0.5);
+
         hReco->SetDirectory(nullptr);
         hTruth->SetDirectory(nullptr);
-        auto* resp = new RooUnfoldResponse(hReco, hTruth);
+
+        RooUnfoldResponse* resp = new RooUnfoldResponse(hReco, hTruth);
         resp->Hresponse()->SetName(Form("m_responseZsj_%zu", i));
+
         m_hRecoZsjMatched.push_back(hReco);
         m_hTruthZsjMatched.push_back(hTruth);
         m_responseZsj.push_back(resp);
@@ -319,74 +371,22 @@ int JetUnfoldingSubjets::process_event(PHCompositeNode* topNode) {
 }
 /*
 int JetUnfoldingSubjets::End(PHCompositeNode*) {
-    PHTFileServer::get().cd(m_outputFileName);
-    std::cout << " about to write" << std::endl;
-    if (m_T) m_T->Write();
-    std::cout << " should have written" << std::endl;
-    // Unfold pT
-    RooUnfoldBayes unfold(m_response1D, hRecoJetPtMatched, 4);
-    unfold.SetNToys(0);
-    hRecoJetPtUnfolded = (TH1F*) unfold.Hunfold(RooUnfolding::kErrors);
-    hRecoJetPtUnfolded->SetDirectory(nullptr);
-    if (hRecoJetPtMatched) hRecoJetPtMatched->Write();
-    if (hTruthJetPtMatched) hTruthJetPtMatched->Write();
-    if (hRecoJetPtUnfolded) hRecoJetPtUnfolded->Write();
-    if (m_response1D && m_response1D->Hresponse()) m_response1D->Hresponse()->Write();
-    // Unfold z_sj
-    for (size_t i = 0; i < m_responseZsj.size(); ++i) {
-      // Defensive: check if the measured histogram has any entries
-      if (m_hRecoZsjMatched[i]->GetEntries() == 0 ||
-	  m_hTruthZsjMatched[i]->GetEntries() == 0) {
-        std::cout << "WARNING: No entries for pt bin " << i
-                  << ", skipping unfolding for this bin." << std::endl;
-        if (m_hRecoZsjUnfolded[i]) {
-	  delete m_hRecoZsjUnfolded[i];
-	  m_hRecoZsjUnfolded[i] = nullptr;
-	}
-        continue;
-      }
-
-      if (m_responseZsj[i]->Hresponse()->GetEntries() == 0) {
-	std::cout << "WARNING: Empty response matrix in pt bin " << i << ", skipping." << std::endl;
-	if (m_hRecoZsjUnfolded[i]) {
-	  delete m_hRecoZsjUnfolded[i];
-	  m_hRecoZsjUnfolded[i] = nullptr;
-	}
-	continue;
-      }
-      RooUnfoldBayes unfold(m_responseZsj[i], m_hRecoZsjMatched[i], 4);
-      unfold.SetNToys(0);
-      if (m_hRecoZsjUnfolded[i]) {
-	delete m_hRecoZsjUnfolded[i];
-	m_hRecoZsjUnfolded[i] = nullptr;
-      }
-      m_hRecoZsjUnfolded[i] = (TH1F*) unfold.Hunfold(RooUnfolding::kErrors);
-      if (m_hRecoZsjUnfolded[i]){
-	m_hRecoZsjUnfolded[i]->SetDirectory(nullptr);
-	m_hRecoZsjUnfolded[i]->Write(Form("hRecoZsjUnfolded_ptbin_%zu", i));
-      }
-      if (m_hRecoZsjMatched[i])
-	m_hRecoZsjMatched[i]->Write();
-      if (m_hTruthZsjMatched[i])
-	m_hTruthZsjMatched[i]->Write();
-      if (m_responseZsj[i] && m_responseZsj[i]->Hresponse())
-	m_responseZsj[i]->Hresponse()->Write(Form("m_responseZsj_%zu", i));
-    }
-    return Fun4AllReturnCodes::EVENT_OK;
-}
-*/
-int JetUnfoldingSubjets::End(PHCompositeNode*) {
   PHTFileServer::get().cd(m_outputFileName);
   std::cout << " about to write" << std::endl;
   if (m_T) m_T->Write();
   std::cout << " should have written" << std::endl;
 
-  // Unfold 1D pT
-  if (m_response1D && hRecoJetPtMatched) {
+  // ---- 1D pT Unfolding ----
+  if (m_response1D && hRecoJetPtMatched && hTruthJetPtMatched &&
+      hRecoJetPtMatched->GetEntries() > 0 && hTruthJetPtMatched->GetEntries() > 0) {
+    
     RooUnfoldBayes unfold(m_response1D, hRecoJetPtMatched, 4);
     unfold.SetNToys(0);
-    hRecoJetPtUnfolded = (TH1F*) unfold.Hunfold(RooUnfolding::kErrors);
-    if (hRecoJetPtUnfolded) {
+
+    hRecoJetPtUnfolded = dynamic_cast<TH1F*>(unfold.Hunfold(RooUnfolding::kErrors));
+    if (!hRecoJetPtUnfolded) {
+      std::cout << "WARNING: Hunfold() returned null for 1D pT" << std::endl;
+    } else {
       hRecoJetPtUnfolded->SetDirectory(nullptr);
       hRecoJetPtUnfolded->Write("hRecoJetPtUnfolded");
     }
@@ -398,48 +398,155 @@ int JetUnfoldingSubjets::End(PHCompositeNode*) {
     m_response1D->Hresponse()->Write("m_response1D");
   }
 
-  // Unfold z_sj
+  // ---- z_sj Unfolding in pt bins ----
+  size_t nbins = std::min({m_hRecoZsjMatched.size(), m_hTruthZsjMatched.size(),
+                           m_responseZsj.size(), m_hRecoZsjUnfolded.size()});
+  
+  for (size_t i = 0; i < nbins; ++i) {
+    auto* reco = m_hRecoZsjMatched[i];
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    auto* truth = m_hTruthZsjMatched[i];
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    auto* resp = m_responseZsj[i];
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    if (!reco || !truth || !resp) {
+      std::cout << "WARNING: Missing input for pt bin " << i << ", skipping." << std::endl;
+      continue;
+    }
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    if (reco->GetEntries() == 0 || truth->GetEntries() == 0) {
+      std::cout << "WARNING: No entries in pt bin " << i << ", skipping unfolding." << std::endl;
+      continue;
+    }
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    if (!resp->Hresponse() || resp->Hresponse()->GetEntries() == 0) {
+      std::cout << "WARNING: Empty response matrix in pt bin " << i << ", skipping." << std::endl;
+      continue;
+    }
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    RooUnfoldBayes unfold(resp, reco, 4);
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    unfold.SetNToys(0);
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    
+    TH1F* unfolded = dynamic_cast<TH1F*>(unfold.Hunfold(RooUnfolding::kErrors));
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    if (!unfolded) {
+      std::cout << "WARNING: Hunfold() returned null for pt bin " << i << std::endl;
+      continue;
+    }
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    unfolded->SetDirectory(nullptr);
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    unfolded->Write(Form("hRecoZsjUnfolded_ptbin_%zu", i));
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+
+    // Replace old hist safely
+    if (m_hRecoZsjUnfolded[i]) {
+      delete m_hRecoZsjUnfolded[i];
+      std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    }
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    m_hRecoZsjUnfolded[i] = unfolded;
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    
+    // Always write matched histograms and response matrix
+    reco->Write(Form("hRecoZsjMatched_ptbin_%zu", i));
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    truth->Write(Form("hTruthZsjMatched_ptbin_%zu", i));
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    if (resp->Hresponse()) {
+      resp->Hresponse()->Write(Form("m_responseZsj_%zu", i));
+      std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+    }
+    std::cout << "DEBUG: About to unfold z_sj bin " << i << " at " << __FILE__ << ":" << __LINE__ << std::endl;
+  }
+  
+  return Fun4AllReturnCodes::EVENT_OK;
+}
+*/
+
+int JetUnfoldingSubjets::End(PHCompositeNode*) {
+  PHTFileServer::get().cd(m_outputFileName);
+  std::cout << " about to write" << std::endl;
+  if (m_T) m_T->Write();
+  std::cout << " should have written" << std::endl;
+
+  // Unfold 1D pT
+  if (m_response1D && hRecoJetPtMatched && hTruthJetPtMatched) {
+    if (hRecoJetPtMatched->GetEntries() > 0 && hTruthJetPtMatched->GetEntries() > 0) {
+      RooUnfoldBayes unfold(m_response1D, hRecoJetPtMatched, 4);
+      unfold.SetNToys(0);
+      TH1* hUnfoldedRaw = unfold.Hunfold(RooUnfolding::kErrors);
+      
+      if (hUnfoldedRaw) {
+	std::cout << "Unfolded histogram type: " << hUnfoldedRaw->ClassName() << std::endl;
+	hRecoJetPtUnfolded = (TH1F*) hUnfoldedRaw->Clone("hRecoJetPtUnfolded");  // Try cast
+	
+	if (!hRecoJetPtUnfolded) {
+	  std::cerr << "ERROR: Failed to clone hRecoJetPtUnfolded as TH1F*. Writing original as generic TH1." << std::endl;
+	  hUnfoldedRaw->SetName("hRecoJetPtUnfolded");
+	  hUnfoldedRaw->SetDirectory(nullptr);
+	  hUnfoldedRaw->Write();
+	} else {
+	  hRecoJetPtUnfolded->SetDirectory(nullptr);
+	  hRecoJetPtUnfolded->Write();
+	  delete hUnfoldedRaw;
+	}
+      }
+    } else {
+      std::cerr << "WARNING: 1D unfolding skipped due to empty reco/truth." << std::endl;
+    }
+  }
+  
+  if (hRecoJetPtMatched) {
+    hRecoJetPtMatched->SetDirectory(nullptr);
+    hRecoJetPtMatched->Write();
+  }
+  if (hTruthJetPtMatched) {
+    hTruthJetPtMatched->SetDirectory(nullptr);
+    hTruthJetPtMatched->Write();
+  }
+  
+  if (m_response1D && m_response1D->Hresponse()) {
+    auto* hResp = m_response1D->Hresponse();
+    hResp->SetDirectory(nullptr);
+    hResp->Write("m_response1D");
+  }
+
   for (size_t i = 0; i < m_responseZsj.size(); ++i) {
     auto reco = m_hRecoZsjMatched[i];
     auto truth = m_hTruthZsjMatched[i];
     auto resp = m_responseZsj[i];
 
-    if (!reco || !truth || !resp) {
-      std::cout << "WARNING: Missing input for pt bin " << i << ", skipping." << std::endl;
-      continue;
-    }
+    if (!reco || !truth || !resp) continue;
+    if (reco->GetEntries() == 0 || truth->GetEntries() == 0) continue;
 
-    if (reco->GetEntries() == 0 || truth->GetEntries() == 0) {
-      std::cout << "WARNING: No entries in pt bin " << i << ", skipping unfolding." << std::endl;
-      continue;
-    }
-
-    if (!resp->Hresponse() || resp->Hresponse()->GetEntries() == 0) {
-      std::cout << "WARNING: Empty response matrix in pt bin " << i << ", skipping." << std::endl;
-      continue;
-    }
+    auto* hResp = resp->Hresponse();
+    if (!hResp || hResp->GetEntries() == 0) continue;
 
     RooUnfoldBayes unfold(resp, reco, 4);
     unfold.SetNToys(0);
-    
-    if (m_hRecoZsjUnfolded[i]) {
-      delete m_hRecoZsjUnfolded[i];
-      m_hRecoZsjUnfolded[i] = nullptr;
+
+    auto* hUnfolded = unfold.Hunfold(RooUnfolding::kErrors);
+    if (hUnfolded) {
+      auto* clone = (TH1F*) hUnfolded->Clone(Form("hRecoZsjUnfolded_ptbin_%zu", i));
+      clone->SetDirectory(nullptr);
+      clone->Write();
+      m_hRecoZsjUnfolded[i] = clone;
+      std::cout << "Wrote z_sj bin " << i << " successfully" << std::endl;
+
     }
-    
-    m_hRecoZsjUnfolded[i] = (TH1F*) unfold.Hunfold(RooUnfolding::kErrors);
-    if (m_hRecoZsjUnfolded[i]) {
-      m_hRecoZsjUnfolded[i]->SetDirectory(nullptr);
-      m_hRecoZsjUnfolded[i]->Write(Form("hRecoZsjUnfolded_ptbin_%zu", i));
-    }
+
+    reco->SetDirectory(nullptr);
+    truth->SetDirectory(nullptr);
+    hResp->SetDirectory(nullptr);
 
     reco->Write(Form("hRecoZsjMatched_ptbin_%zu", i));
     truth->Write(Form("hTruthZsjMatched_ptbin_%zu", i));
-    if (resp->Hresponse()) {
-      resp->Hresponse()->Write(Form("m_responseZsj_%zu", i));
-    }
+    hResp->Write(Form("m_responseZsj_%zu", i));
   }
-
+  std::cout << "JetUnfoldingSubjets::End() finished without crash." << std::endl;
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
