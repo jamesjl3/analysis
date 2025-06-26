@@ -1,118 +1,75 @@
-#ifndef JETUNFOLDINGSUBJETS_H
-#define JETUNFOLDINGSUBJETS_H
+#pragma once
 
 #include <fun4all/SubsysReco.h>
-#include <g4main/PHG4TruthInfoContainer.h>
-#include <g4main/PHG4Particle.h>
-#include <string>
+#include <memory>
 #include <vector>
-#include <utility>
-#include <TH1F.h>
-#include <TH2D.h>
-#include <set>
 #include <map>
-
-#include "RooUnfoldBayes.h"
-#include "RooUnfoldResponse.h"
+#include <string>
 #include <fastjet/PseudoJet.hh>
 
 class PHCompositeNode;
-class TFile;
-class TTree;
-class TH1F;
-class Jet;
 class JetContainer;
-class JetMap;
+class Jet;
+class TH1F;
+class TTree;
+class RooUnfoldResponse;
 class TowerInfoContainer;
 class RawTowerGeomContainer;
 class TowerBackground;
-//class PHG4TruthInfoContainer
+class PHG4TruthInfoContainer;
 
-class JetUnfoldingSubjets : public SubsysReco
-{
+class JetUnfoldingSubjets : public SubsysReco {
 public:
-  JetUnfoldingSubjets(const std::string& recojetname,
-		     const std::string& truthjetname,
-		     const std::string& outputfilename);
-  
-  ~JetUnfoldingSubjets() override;
-  
-  void setEtaRange(double low, double high) {
-    m_etaRange.first = low;
-    m_etaRange.second = high;
-  }
-  void setPtRange(double low, double high) {
-    m_ptRange.first = low;
-    m_ptRange.second = high;
-  }
-  
-  void doTruth(int flag) {
-    m_doTruthJets = flag;
-  }
-  
-  int Init(PHCompositeNode* topNode) override;
-  int process_event(PHCompositeNode* topNode) override;
-  int End(PHCompositeNode* topNode) override;
-  int Reset(PHCompositeNode* topNode) override;
-  void Print(const std::string& what) const override;
+    JetUnfoldingSubjets(const std::string& recojetname,
+                        const std::string& truthjetname,
+                        const std::string& outputfilename);
+    ~JetUnfoldingSubjets() override;
 
-  void MatchJets1to1(JetContainer* recoJets, JetContainer* truthJets, float dRMax = 0.2);
+    int Init(PHCompositeNode*) override;
+    int process_event(PHCompositeNode*) override;
+    int End(PHCompositeNode*) override;
+    int Reset(PHCompositeNode*) override;
+    void Print(const std::string& what="") const override;
 
-  void AnalyzeMatchedJets(JetContainer* recoJets,
-			  TowerInfoContainer* towersEM3,
-			  TowerInfoContainer* towersIH3,
-			  TowerInfoContainer* towersOH3,
-			  RawTowerGeomContainer* tower_geom,
-			  RawTowerGeomContainer* tower_geomOH,
-			  TowerBackground* background,
-			  float background_v2,
-			  float background_Psi2);
-
-  void AnalyzeTruthJets(JetContainer* truthJets,
-                      PHG4TruthInfoContainer* truthInfo);
-  
 private:
-  std::string m_recoJetName;
-  std::string m_truthJetName;
-  std::string m_outputFileName;
-
-  // Output file and TTree
+    using JetMap = std::map<Jet*, Jet*>;
+    using JetMapPtr = std::unique_ptr<JetMap>;
   
-  TTree* m_T = nullptr;
+    void MatchJets1to1(JetContainer* recoJets, JetContainer* truthJets, float dRMax);
+    
+    std::vector<fastjet::PseudoJet> BuildPseudoJets(
+        Jet* jet, TowerInfoContainer* em, TowerInfoContainer* ih, TowerInfoContainer* oh,
+        RawTowerGeomContainer* geomEM, RawTowerGeomContainer* geomOH,
+        TowerBackground* bg, float v2, float psi2, bool doUnsub) const;
+    std::vector<fastjet::PseudoJet> BuildTruthPseudoJets(
+        Jet* truthJet, PHG4TruthInfoContainer* truthInfo) const;
+    void AnalyzeMatchedJets(JetContainer* recoJets,
+        TowerInfoContainer* em, TowerInfoContainer* ih, TowerInfoContainer* oh,
+        RawTowerGeomContainer* geomEM, RawTowerGeomContainer* geomOH,
+        TowerBackground* bg, float v2, float psi2, PHG4TruthInfoContainer* truthInfo);
+    void AnalyzeTruthJets(JetContainer* truthJets, PHG4TruthInfoContainer* truthInfo);
 
-  // TTree variables
-  int m_event = -1;
-  float m_centrality = 0;
-  float m_impactparam = 0;
-  std::vector<float> m_pt;
-  std::vector<float> m_eta;
-  std::vector<float> m_phi;
+    std::string m_recoJetName;
+    std::string m_truthJetName;
+    std::string m_outputFileName;
 
-  std::vector<float> m_pt_truth;
-  std::vector<float> m_eta_truth;
-  std::vector<float> m_phi_truth;
+    std::unique_ptr<TTree> m_T;
+    int m_event;
+    float m_centrality;
+    float m_impactparam;
+    std::vector<float> m_pt, m_eta, m_phi, m_pt_truth, m_eta_truth, m_phi_truth;
 
-  // Histograms
-  TH1F* _h_R04_z_sj_30 = nullptr;
-  TH1F* _h_R04_theta_sj_30 = nullptr;
-  TH1F* _h_R04_z_g_30_01 = nullptr;
-  TH1F* _h_R04_theta_g_30_01 = nullptr;
-  TH1F* _h_R04_truth_z_sj_30 = nullptr;
-  TH1F* _h_R04_truth_theta_sj_30 = nullptr;
-  TH1F* _h_R04_truth_z_g_30_01 = nullptr;
-  TH1F* _h_R04_truth_theta_g_30_01 = nullptr;
+    std::unique_ptr<RooUnfoldResponse> m_response1D;
+    std::unique_ptr<TH1F> hRecoJetPtMatched;    // Add this line
+    std::unique_ptr<TH1F> hTruthJetPtMatched;   // Add this line
+    std::unique_ptr<TH1F> hRecoJetPtUnfolded;   // Add this line
 
-  TH1F* hRecoJetPtMatched = nullptr;
-  TH1F* hTruthJetPtMatched = nullptr;
-  RooUnfoldResponse* response = nullptr;
-  TH1F* hRecoJetPtUnfolded = nullptr;
+  JetMap recoToTruth; // Change to JetMap instead of unique_ptr<JetMap>
+  JetMap truthToReco; // Change to JetMap instead of unique_ptr<JetMap>
   
-  std::pair<double, double> m_etaRange { -1.1, 1.1 };
-  std::pair<double, double> m_ptRange  { 5.0, 60.0 };
-  bool m_doTruthJets = false;
-  
-  std::map<Jet*, Jet*> recoToTruth;
-  std::map<Jet*, Jet*> truthToReco;
+  std::vector<std::unique_ptr<RooUnfoldResponse>> m_responseZsj;
+  std::vector<std::unique_ptr<TH1F>> m_hRecoZsjMatched;
+  std::vector<std::unique_ptr<TH1F>> m_hTruthZsjMatched;
+  std::vector<std::unique_ptr<TH1F>> m_hRecoZsjUnfolded;
 };
 
-#endif
