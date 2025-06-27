@@ -33,7 +33,7 @@ echo "Generated outfile: $outfile"
 simFileList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/JetCorrection/dst_calo_cluster.list
 truthList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/JetCorrection/dst_truth_jet.list
 globalList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/JetCorrection/dst_global.list
-g4hitList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/JetCorrection/dst_truth.list
+g4hitList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/JetCorrection/g4hits.list
 
 # Get the corresponding files for this job index
 truthFile=$(sed "$((JOB_INDEX + 1))q;d" $truthList)

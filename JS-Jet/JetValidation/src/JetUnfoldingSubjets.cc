@@ -233,7 +233,11 @@ void JetUnfoldingSubjets::AnalyzeTruthJets(JetContainer* truthJets, PHG4TruthInf
 }
 int JetUnfoldingSubjets::Init(PHCompositeNode*) {
     PHTFileServer::get().open(m_outputFileName, "RECREATE");
-    PHTFileServer::get().cd(m_outputFileName);
+    if (!gDirectory->GetDirectory("JetUnfoldingSubjets")) {
+      gDirectory->mkdir("JetUnfoldingSubjets");
+    }
+    gDirectory->cd("JetUnfoldingSubjets");
+    //PHTFileServer::get().cd(m_outputFileName);
     
     m_T = std::make_unique<TTree>("T", "Jet Tree");
     m_T->Branch("event", &m_event, "event/I");
