@@ -20,6 +20,7 @@
 #include <g4main/PHG4Particle.h>
 #include <TVector2.h>
 #include <TH1F.h>
+#include <TH2F.h> 
 #include <TFile.h>
 #include <TTree.h>
 #include <cmath>
@@ -49,15 +50,15 @@ float m_impactparam = 0;
 std::vector<float> m_pt, m_eta, m_phi;
 std::vector<float> m_pt_truth, m_eta_truth, m_phi_truth;
 
-TH1F* _h_R04_z_sj_30 = nullptr;
-TH1F* _h_R04_theta_sj_30 = nullptr;
-TH1F* _h_R04_z_g_30_01 = nullptr;
-TH1F* _h_R04_theta_g_30_01 = nullptr;
+TH1F* _h_R04_z_sj_10 = nullptr;
+TH1F* _h_R04_theta_sj_10 = nullptr;
+TH1F* _h_R04_z_g_10_01 = nullptr;
+TH1F* _h_R04_theta_g_10_01 = nullptr;
 
-TH1F* _h_R04_truth_z_sj_30 = nullptr;
-TH1F* _h_R04_truth_theta_sj_30 = nullptr;
-TH1F* _h_R04_truth_z_g_30_01 = nullptr;
-TH1F* _h_R04_truth_theta_g_30_01 = nullptr;
+TH1F* _h_R04_truth_z_sj_10 = nullptr;
+TH1F* _h_R04_truth_theta_sj_10 = nullptr;
+TH1F* _h_R04_truth_z_g_10_01 = nullptr;
+TH1F* _h_R04_truth_theta_g_10_01 = nullptr;
 
 float deltaR(Jet* a, Jet* b) {
   float deta = a->get_eta() - b->get_eta();
@@ -80,7 +81,7 @@ void JetMatchingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* tru
     for (auto truth : *truthJets)
     {
       // Apply truth cuts BEFORE matching:
-      if (truth->get_pt() < 30.0) continue;  // Same cut
+      if (truth->get_pt() < 10.0) continue;  // Same cut
       if (fabs(truth->get_eta()) > 0.7) continue;
 
       float dR = deltaR(reco, truth);
@@ -208,7 +209,7 @@ void JetMatchingSubjets::AnalyzeMatchedJets(JetContainer* recoJets,
     PseudoJet leading = jets[0];
     if (fabs(leading.eta()) > 0.7) continue;
 
-    if (leading.pt() > 30) {
+    if (leading.pt() > 10) {
       // ---- Subjet clustering (R=0.1) ----
       ClusterSequence subClust(leading.constituents(), jetDefAKT_R01);
       auto subjets = sorted_by_pt(subClust.inclusive_jets());
@@ -219,8 +220,8 @@ void JetMatchingSubjets::AnalyzeMatchedJets(JetContainer* recoJets,
           double z_sj = sj2.pt() / (sj1.pt() + sj2.pt());
 
           if (!std::isnan(theta_sj) && !std::isnan(z_sj)) {
-            _h_R04_z_sj_30->Fill(z_sj);
-            _h_R04_theta_sj_30->Fill(theta_sj);
+            _h_R04_z_sj_10->Fill(z_sj);
+            _h_R04_theta_sj_10->Fill(theta_sj);
           }
         }
       }
@@ -231,8 +232,8 @@ void JetMatchingSubjets::AnalyzeMatchedJets(JetContainer* recoJets,
       if (sd_jet != 0) {
         double zg = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
         double rg = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
-        _h_R04_z_g_30_01->Fill(zg);
-        _h_R04_theta_g_30_01->Fill(rg);
+        _h_R04_z_g_10_01->Fill(zg);
+        _h_R04_theta_g_10_01->Fill(rg);
       }
     }
   }
@@ -255,7 +256,7 @@ void JetMatchingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
   {
     Jet* truthJet = pair.first;
     // Jet* recoJet  = pair.second;
-    if (truthJet->get_pt() < 30.0) continue;
+    if (truthJet->get_pt() < 10.0) continue;
 
     m_pt_truth.push_back(truthJet->get_pt());
     m_eta_truth.push_back(truthJet->get_eta());
@@ -276,7 +277,7 @@ void JetMatchingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
     PseudoJet leading = jets[0];
     if (fabs(leading.eta()) > 0.7) continue;
 
-    if (leading.pt() > 30)
+    if (leading.pt() > 10)
     {
       // ---- Subjet clustering (R=0.1) ----
       ClusterSequence subClust(leading.constituents(), jetDefAKT_R01);
@@ -291,8 +292,8 @@ void JetMatchingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
 
           if (!std::isnan(theta_sj) && !std::isnan(z_sj))
           {
-            _h_R04_truth_z_sj_30->Fill(z_sj);
-            _h_R04_truth_theta_sj_30->Fill(theta_sj);
+            _h_R04_truth_z_sj_10->Fill(z_sj);
+            _h_R04_truth_theta_sj_10->Fill(theta_sj);
           }
         }
       }
@@ -304,8 +305,8 @@ void JetMatchingSubjets::AnalyzeTruthJets(JetContainer* truthJets,
       {
         double zg = sd_jet.structure_of<contrib::SoftDrop>().symmetry();
         double rg = sd_jet.structure_of<contrib::SoftDrop>().delta_R();
-        _h_R04_truth_z_g_30_01->Fill(zg);
-        _h_R04_truth_theta_g_30_01->Fill(rg);
+        _h_R04_truth_z_g_10_01->Fill(zg);
+        _h_R04_truth_theta_g_10_01->Fill(rg);
       }
     }
   }
@@ -389,15 +390,15 @@ int JetMatchingSubjets::Init(PHCompositeNode*) {
   m_T->Branch("eta_truth", &m_eta_truth);
   m_T->Branch("phi_truth", &m_phi_truth);
 
-  _h_R04_z_sj_30 = new TH1F("z_sj", "z_{sj};z;Entries", 20, 0, 0.5);
-  _h_R04_theta_sj_30 = new TH1F("theta_sj", "#theta_{sj};#theta;Entries", 20, 0, 0.5);
-  _h_R04_z_g_30_01 = new TH1F("z_g", "z_{g};z;Entries", 20, 0, 0.5);
-  _h_R04_theta_g_30_01 = new TH1F("theta_g", "#theta_{g};#theta;Entries", 20, 0, 0.5);
+  _h_R04_z_sj_10 = new TH1F("z_sj", "z_{sj};z;Entries", 20, 0, 0.5);
+  _h_R04_theta_sj_10 = new TH1F("theta_sj", "#theta_{sj};#theta;Entries", 20, 0, 0.5);
+  _h_R04_z_g_10_01 = new TH1F("z_g", "z_{g};z;Entries", 20, 0, 0.5);
+  _h_R04_theta_g_10_01 = new TH1F("theta_g", "#theta_{g};#theta;Entries", 20, 0, 0.5);
 
-  _h_R04_truth_z_sj_30 = new TH1F("truth_z_sj", "Truth z_{sj};z;Entries", 20, 0, 0.5);
-  _h_R04_truth_theta_sj_30 = new TH1F("truth_theta_sj", "Truth #theta_{sj};#theta;Entries", 20, 0, 0.5);
-  _h_R04_truth_z_g_30_01 = new TH1F("truth_z_g", "Truth z_{g};z;Entries", 20, 0, 0.5);
-  _h_R04_truth_theta_g_30_01 = new TH1F("truth_theta_g", "Truth #theta_{g};#theta;Entries", 20, 0, 0.5);
+  _h_R04_truth_z_sj_10 = new TH1F("truth_z_sj", "Truth z_{sj};z;Entries", 20, 0, 0.5);
+  _h_R04_truth_theta_sj_10 = new TH1F("truth_theta_sj", "Truth #theta_{sj};#theta;Entries", 20, 0, 0.5);
+  _h_R04_truth_z_g_10_01 = new TH1F("truth_z_g", "Truth z_{g};z;Entries", 20, 0, 0.5);
+  _h_R04_truth_theta_g_10_01 = new TH1F("truth_theta_g", "Truth #theta_{g};#theta;Entries", 20, 0, 0.5);
   
   return Fun4AllReturnCodes::EVENT_OK;
 }
@@ -406,15 +407,15 @@ int JetMatchingSubjets::End(PHCompositeNode*) {
   PHTFileServer::get().cd(m_outputFileName);
   
   m_T->Write();
-  _h_R04_z_sj_30->Write();
-  _h_R04_theta_sj_30->Write();
-  _h_R04_z_g_30_01->Write();
-  _h_R04_theta_g_30_01->Write();
+  _h_R04_z_sj_10->Write();
+  _h_R04_theta_sj_10->Write();
+  _h_R04_z_g_10_01->Write();
+  _h_R04_theta_g_10_01->Write();
 
-  _h_R04_truth_z_sj_30->Write();
-  _h_R04_truth_theta_sj_30->Write();
-  _h_R04_truth_z_g_30_01->Write();
-  _h_R04_truth_theta_g_30_01->Write();
+  _h_R04_truth_z_sj_10->Write();
+  _h_R04_truth_theta_sj_10->Write();
+  _h_R04_truth_z_g_10_01->Write();
+  _h_R04_truth_theta_g_10_01->Write();
   
   return Fun4AllReturnCodes::EVENT_OK;
 }

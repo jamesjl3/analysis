@@ -56,7 +56,7 @@ gSystem->mkdir("/sphenix/tg/tg01/jets/jamesj3j3/JetMatchingSubjets/", true);
 void Fun4All_JetMatchingSubjets(const char *filelisttruth = "dst_truth_jet.list",
                            const char *filelistcalo = "dst_calo_cluster.list",
                            const char *filelistglobal = "dst_global.list",
-                           const char *filelisttruthg4hit = "dst_truth.list",
+                           const char *filelisttruthg4hit = "g4hits.list",
                            const char *outname = "outputest_jetcorrection.root",
                            int start_event = 0, int end_event = 10000)
 {
