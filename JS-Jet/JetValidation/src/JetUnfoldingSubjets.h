@@ -2,10 +2,11 @@
 #define JETUNFOLDINGSUBJETS_H
 
 #include <fun4all/SubsysReco.h>
-#include <vector>
-#include <map>
-#include <string>
 #include <fastjet/PseudoJet.hh>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 // Forward declarations for ROOT classes
 class TTree;
@@ -54,7 +55,7 @@ protected:
     std::string m_outputFileName;
 
     // Output tree and event-level info
-    TTree* m_T = nullptr;
+    std::unique_ptr<TTree> m_T;
     int m_event = -1;
     float m_centrality = -1.0f;
     float m_impactparam = -1.0f;
@@ -72,16 +73,16 @@ protected:
     std::map<Jet*, Jet*> truthToReco;
 
     // 1D response and spectra
-    RooUnfoldResponse* m_response1D = nullptr;
-    TH1F* hRecoJetPtMatched = nullptr;
-    TH1F* hTruthJetPtMatched = nullptr;
-    TH1F* hRecoJetPtUnfolded = nullptr;
+    std::unique_ptr<RooUnfoldResponse> m_response1D;
+    std::unique_ptr<TH1F> hRecoJetPtMatched;
+    std::unique_ptr<TH1F> hTruthJetPtMatched;
+    std::unique_ptr<TH1F> hRecoJetPtUnfolded;
 
     // z_sj per-pt-bin histograms and responses
-    std::vector<TH1F*> m_hRecoZsjMatched;
-    std::vector<TH1F*> m_hTruthZsjMatched;
-    std::vector<TH1F*> m_hRecoZsjUnfolded;
-    std::vector<RooUnfoldResponse*> m_responseZsj;
+    std::vector<std::unique_ptr<TH1F>> m_hRecoZsjMatched;
+    std::vector<std::unique_ptr<TH1F>> m_hTruthZsjMatched;
+    std::vector<std::unique_ptr<TH1F>> m_hRecoZsjUnfolded;
+    std::vector<std::unique_ptr<RooUnfoldResponse>> m_responseZsj;
 };
 
 #endif // JETUNFOLDINGSUBJETS_H
