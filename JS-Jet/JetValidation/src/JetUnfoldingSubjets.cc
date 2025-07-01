@@ -240,8 +240,8 @@ void JetUnfoldingSubjets::AnalyzeTruthJets(JetContainer* truthJets, PHG4TruthInf
 int JetUnfoldingSubjets::Init(PHCompositeNode*) {
     PHTFileServer::get().open(m_outputFileName, "RECREATE");
 
-    m_T->SetDirectory(nullptr);
     m_T = new TTree("T", "Jet Tree");
+    m_T->SetDirectory(nullptr);
     m_T->Branch("event", &m_event, "event/I");
     m_T->Branch("cent", &m_centrality, "cent/F");
     m_T->Branch("b", &m_impactparam, "b/F");
@@ -282,11 +282,12 @@ int JetUnfoldingSubjets::Init(PHCompositeNode*) {
 			    Form("Reco z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
 			    20, 0, 0.5);
       hReco->SetName(hRecoName.c_str());
-      
+      hReco->SetDirectory(nullptr);
       auto hTruth = new TH1F(hTruthName.c_str(),
-                           Form("Truth z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
+			     Form("Truth z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
 			     20, 0, 0.5);
       hTruth->SetName(hTruthName.c_str());
+      hTruth->SetDirectory(nullptr);
       
       // Construct RooUnfoldResponse with a unique name
       RooUnfoldResponse* resp = new RooUnfoldResponse(hReco, hTruth, responseName.c_str());
@@ -414,11 +415,9 @@ int JetUnfoldingSubjets::End(PHCompositeNode*) {
       m_hRecoZsjUnfolded[i]->SetDirectory(nullptr);
       std::cout << "Writing hRecoZsjUnfolded_ptbin_" << i << "..." << std::endl;
       m_hRecoZsjUnfolded[i]->Write(Form("hRecoZsjUnfolded_ptbin_%zu", i));
-      std::cout << "hRecoZsjUnfolded_ptbin_" << i << " written." << std::endl;
-      if (m_hRecoZsjUnfolded[i]) m_hRecoZsjUnfolded[i]->Write();
-      else std::cerr << "WARNING: m_hRecoZsjUnfolded[" << i << "] is null during Write()\n";
-      
+      std::cout << "hRecoZsjUnfolded_ptbin_" << i << " written." << std::endl;  
     }
+
     
     reco->SetDirectory(nullptr);
     std::cout << "Writing hRecoZsjMatched_ptbin_" << i << "..." << std::endl;
@@ -436,8 +435,9 @@ int JetUnfoldingSubjets::End(PHCompositeNode*) {
       std::cout << "m_responseZsj_" << i << " written." << std::endl;
     }
   }
-  
   std::cout << "JetUnfoldingSubjets::End -- finished writing output." << std::endl;
+  PHTFileServer::get().write(m_outputFileName);
+  PHTFileServer::get().close();
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
