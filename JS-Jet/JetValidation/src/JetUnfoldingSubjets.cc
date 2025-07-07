@@ -37,11 +37,11 @@
 
 namespace
 {
-constexpr float kTruthJetPtMin = 10.f;
-constexpr float kRecoJetPtMin  = 5.f;
-constexpr float kJetEtaMax     = 0.7f;
-constexpr float kSubjetPtMin   = 3.f;
-const std::vector<float> pt_bins = {10, 15, 20, 25, 30, 35};
+  constexpr float kTruthJetPtMin = 5.f;
+  constexpr float kRecoJetPtMin  = 5.f;
+  constexpr float kJetEtaMax     = 0.7f;
+  constexpr float kSubjetPtMin   = 3.f;
+  const std::vector<float> pt_bins = {30, 35, 40, 45, 50, 55};
 
 inline int FindPtBin( float pt )
 {
@@ -90,46 +90,72 @@ int JetUnfoldingSubjets::Init( PHCompositeNode* )
   m_T->Branch("phi_truth", &m_phi_truth);
 
   constexpr float reco_ptmin = kRecoJetPtMin, reco_ptmax = 60.f;
-  constexpr float truth_ptmin = kTruthJetPtMin, truth_ptmax = 35.f;
-  constexpr int nbins_reco = 20, nbins_truth = 10;
+  constexpr float truth_ptmin = kTruthJetPtMin, truth_ptmax = 60.f;
+  constexpr int nbins_reco = 11, nbins_truth = 11;
 
   m_response1D = std::make_unique<RooUnfoldResponse>( nbins_reco, reco_ptmin, reco_ptmax,
                                                       nbins_truth, truth_ptmin, truth_ptmax );
   m_response1D->Hresponse()->SetName("responsePt");
-
+  
   hRecoJetPtMatched = std::make_unique<TH1F>("hRecoJetPtMatched",
-                                             "Reco Jet pT (Matched);p_{T} [GeV];Jets",
-                                             nbins_reco, reco_ptmin, reco_ptmax );
+					     "Reco Jet pT (Matched);p_{T} [GeV];Jets",
+  nbins_reco, reco_ptmin, reco_ptmax );
   hTruthJetPtMatched = std::make_unique<TH1F>("hTruthJetPtMatched",
-                                              "Truth Jet pT (Matched);p_{T} [GeV];Jets",
-                                              nbins_truth, truth_ptmin, truth_ptmax );
+					      "Truth Jet pT (Matched);p_{T} [GeV];Jets",
+					      nbins_truth, truth_ptmin, truth_ptmax );
+  
   hRecoJetPtMatched->SetDirectory(nullptr);
   hTruthJetPtMatched->SetDirectory(nullptr);
-
+  
   for( size_t i = 0; i < pt_bins.size() - 1; ++i )
-  {
-    const float ptlow = pt_bins[i];
-    const float pthigh = pt_bins[i+1];
-    const std::string label = Form("ptbin_%d_%d", static_cast<int>(ptlow), static_cast<int>(pthigh));
-
-    auto hReco = std::make_unique<TH1F>( ("hRecoZsj_" + label).c_str(),
-                                         Form("Reco z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
-                                         20, 0, 0.5 );
-    auto hTruth = std::make_unique<TH1F>( ("hTruthZsj_" + label).c_str(),
-                                          Form("Truth z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
-                                          20, 0, 0.5 );
-    hReco->SetDirectory(nullptr);
-    hTruth->SetDirectory(nullptr);
-
-    auto resp = std::make_unique<RooUnfoldResponse>( hReco.get(), hTruth.get() );
-    resp->Hresponse()->SetName( Form("m_responseZsj_%zu", i) );
-
-    m_hRecoZsjMatched.push_back( std::move(hReco) );
-    m_hTruthZsjMatched.push_back( std::move(hTruth) );
-    m_responseZsj.push_back( std::move(resp) );
-    m_hRecoZsjUnfolded.emplace_back( nullptr );
-  }
-
+    {
+      const float ptlow = pt_bins[i];
+      const float pthigh = pt_bins[i+1];
+      const std::string label = Form("ptbin_%d_%d", static_cast<int>(ptlow), static_cast<int>(pthigh));
+      
+      auto hReco = std::make_unique<TH1F>( ("hRecoZsj_" + label).c_str(),
+					   Form("Reco z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
+					   10, 0, 0.5 );
+      auto hTruth = std::make_unique<TH1F>( ("hTruthZsj_" + label).c_str(),
+					    Form("Truth z_{sj} [%d-%d GeV];z_{sj};Entries", (int)ptlow, (int)pthigh),
+					    10, 0, 0.5 );
+      hReco->SetDirectory(nullptr);
+      hTruth->SetDirectory(nullptr);
+      
+      auto resp = std::make_unique<RooUnfoldResponse>( hReco.get(), hTruth.get() );
+      resp->Hresponse()->SetName( Form("m_responseZsj_%zu", i) );
+      
+      m_hRecoZsjMatched.push_back( std::move(hReco) );
+      m_hTruthZsjMatched.push_back( std::move(hTruth) );
+      m_responseZsj.push_back( std::move(resp) );
+      m_hRecoZsjUnfolded.emplace_back( nullptr );
+    }
+  //--------------------------------- 2D Unfolding with RooUnfold ----------------------------------//
+  // Define binning
+  const int n_zsj_bins = 10;
+  float zsj_bins[n_zsj_bins + 1];
+  for (int i = 0; i <= n_zsj_bins; ++i) zsj_bins[i] = 0.0 + 0.05 * i;
+  
+  const int n_pt_bins = 10;
+  float pt_bins[n_pt_bins + 1];
+  for (int i = 0; i <= n_pt_bins; ++i) pt_bins[i] = 5.0 + 5.0 * i;
+  
+  // Histograms
+  hRecoZsj2D = std::make_unique<TH2F>("hRecoZsj2D", "Reco z_{sj} vs p_{T};z_{sj};p_{T} [GeV]",
+				      n_zsj_bins, zsj_bins, n_pt_bins, pt_bins);
+  hTruthZsj2D = std::make_unique<TH2F>("hTruthZsj2D", "Truth z_{sj} vs p_{T};z_{sj};p_{T} [GeV]",
+                                     n_zsj_bins, zsj_bins, n_pt_bins, pt_bins);
+  hRecoZsj2D->SetDirectory(nullptr);
+  hTruthZsj2D->SetDirectory(nullptr);
+  
+  // Response matrix: (reco z_sj, reco pT) → (truth z_sj, truth pT)
+  auto hMeas2D  = new TH2F("hMeas2D", "meas",  n_zsj_bins, zsj_bins, n_pt_bins, pt_bins);
+  auto hTruth2D = new TH2F("hTruth2D", "truth", n_zsj_bins, zsj_bins, n_pt_bins, pt_bins);
+  auto hResp2D  = new TH2F("hResp2D", "resp",   n_zsj_bins*n_pt_bins, 0, n_zsj_bins*n_pt_bins,
+			   n_zsj_bins*n_pt_bins, 0, n_zsj_bins*n_pt_bins); // or some default
+  
+  m_responseZsj2D = std::make_unique<RooUnfoldResponse>(hMeas2D, hTruth2D, hResp2D, "responseZsj2D", "zsj vs pt response");
+  
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
@@ -144,7 +170,7 @@ void JetUnfoldingSubjets::MatchJets1to1( JetContainer* recoJets, JetContainer* t
     if( reco->get_pt() < kRecoJetPtMin || std::fabs(reco->get_eta()) > kJetEtaMax ) continue;
     for( auto truth : *truthJets )
     {
-      if( truth->get_pt() < kTruthJetPtMin || std::fabs(truth->get_eta()) > kJetEtaMax ) continue;
+      if( truth->get_pt() < 30 || std::fabs(truth->get_eta()) > kJetEtaMax ) continue;
       const float dR = deltaR( reco, truth );
       if( dR < dRMax ) pairs.emplace_back( dR, reco, truth );
     }
@@ -287,45 +313,80 @@ void JetUnfoldingSubjets::AnalyzeMatchedJets( JetContainer* /*recoJets*/,
 
     const double reco_z_sj = subjets[1].pt() / ( subjets[0].pt() + subjets[1].pt() );
     const int bin = FindPtBin( truth_pt );
+
+    auto truth_particles = BuildTruthPseudoJets(truthJet, truthInfo);
+    fastjet::ClusterSequence truthClustSeq(truth_particles, jetDefAKT_R04);
+    auto truthjets = fastjet::sorted_by_pt(truthClustSeq.inclusive_jets());
+    if (truthjets.empty()) continue;
+    
+    fastjet::PseudoJet truth_leading = truthjets[0];
+    fastjet::ClusterSequence truthSubClust(truth_leading.constituents(), jetDefAKT_R01);
+    auto truthsubjets = fastjet::sorted_by_pt(truthSubClust.inclusive_jets());
+    if (truthsubjets.size() < 2) continue;
+    if (truthsubjets[0].pt() < kSubjetPtMin || truthsubjets[1].pt() < kSubjetPtMin) continue;
+    
+    const double truth_z_sj = truthsubjets[1].pt() / (truthsubjets[0].pt() + truthsubjets[1].pt());
+    
     if( bin >= 0 && bin < static_cast<int>(m_hRecoZsjMatched.size()) )
     {
       if( m_hRecoZsjMatched[bin] ) m_hRecoZsjMatched[bin]->Fill( reco_z_sj );
       if( m_responseZsj[bin] ) m_responseZsj[bin]->Fill( reco_z_sj, reco_z_sj );
     }
+      if (hRecoZsj2D) hRecoZsj2D->Fill(reco_z_sj, reco_pt);
+      if (hTruthZsj2D) hTruthZsj2D->Fill(truth_z_sj, truth_pt);
+      if (m_responseZsj2D)
+	m_responseZsj2D->Fill(reco_z_sj, reco_pt, truth_z_sj, truth_pt);
   }
 }
 
 void JetUnfoldingSubjets::AnalyzeTruthJets( JetContainer* truthJets,
-    PHG4TruthInfoContainer* truthInfo )
+                                            PHG4TruthInfoContainer* truthInfo )
 {
   fastjet::JetDefinition jetDefAKT_R04( fastjet::antikt_algorithm, 0.4 );
   fastjet::JetDefinition jetDefAKT_R01( fastjet::antikt_algorithm, 0.1 );
 
-  for( auto truthJet : *truthJets )
+  for (auto truthJet : *truthJets)
   {
     const float pt = truthJet->get_pt();
-    if( pt < kTruthJetPtMin || std::fabs(truthJet->get_eta()) > kJetEtaMax ) continue;
-    if( truthToReco.count( truthJet ) ) continue; // already matched
+    if (pt < kTruthJetPtMin || std::fabs(truthJet->get_eta()) > kJetEtaMax)
+      continue;
 
-    if( hTruthJetPtMatched ) hTruthJetPtMatched->Fill( pt );
-    if( m_response1D ) m_response1D->Miss( pt );
+    if (truthToReco.count(truthJet))
+      continue;  // skip matched truth jets
 
-    auto truth_particles = BuildTruthPseudoJets( truthJet, truthInfo );
-    fastjet::ClusterSequence truthClustSeq( truth_particles, jetDefAKT_R04 );
-    auto truthjets = fastjet::sorted_by_pt( truthClustSeq.inclusive_jets() );
-    if( truthjets.empty() ) continue;
+    // Don't fill hTruthJetPtMatched here — we only want matched jets in that hist
+
+    if (m_response1D)
+      m_response1D->Miss(pt);  // mark missed truth jets in response
+
+    // z_sj analysis for unmatched truth jets
+    auto truth_particles = BuildTruthPseudoJets(truthJet, truthInfo);
+    fastjet::ClusterSequence truthClustSeq(truth_particles, jetDefAKT_R04);
+    auto truthjets = fastjet::sorted_by_pt(truthClustSeq.inclusive_jets());
+    if (truthjets.empty())
+      continue;
+
     fastjet::PseudoJet truth_leading = truthjets[0];
-    fastjet::ClusterSequence truthSubClust( truth_leading.constituents(), jetDefAKT_R01 );
-    auto truthsubjets = fastjet::sorted_by_pt( truthSubClust.inclusive_jets() );
-    if( truthsubjets.size() < 2 ) continue;
-    if( truthsubjets[0].pt() < kSubjetPtMin || truthsubjets[1].pt() < kSubjetPtMin ) continue;
+    fastjet::ClusterSequence truthSubClust(truth_leading.constituents(), jetDefAKT_R01);
+    auto truthsubjets = fastjet::sorted_by_pt(truthSubClust.inclusive_jets());
+    if (truthsubjets.size() < 2)
+      continue;
+    if (truthsubjets[0].pt() < kSubjetPtMin || truthsubjets[1].pt() < kSubjetPtMin)
+      continue;
 
-    const double truth_z_sj = truthsubjets[1].pt() / ( truthsubjets[0].pt() + truthsubjets[1].pt() );
-    const int bin = FindPtBin( pt );
-    if( bin >= 0 && bin < static_cast<int>(m_hTruthZsjMatched.size()) )
+    const double truth_z_sj = truthsubjets[1].pt() /
+                              (truthsubjets[0].pt() + truthsubjets[1].pt());
+    const int bin = FindPtBin(pt);
+    if (bin >= 0 && bin < static_cast<int>(m_hTruthZsjMatched.size()))
     {
-      if( m_hTruthZsjMatched[bin] ) m_hTruthZsjMatched[bin]->Fill( truth_z_sj );
-      if( m_responseZsj[bin] ) m_responseZsj[bin]->Miss( truth_z_sj );
+      if (m_hTruthZsjMatched[bin])
+        m_hTruthZsjMatched[bin]->Fill(truth_z_sj);
+      if (m_responseZsj[bin])
+        m_responseZsj[bin]->Miss(truth_z_sj);
+      if (m_responseZsj2D)
+	m_responseZsj2D->Miss(truth_z_sj, pt);
+      if (hTruthZsj2D)
+	hTruthZsj2D->Fill(truth_z_sj, pt);
     }
   }
 }
@@ -365,6 +426,39 @@ int JetUnfoldingSubjets::process_event( PHCompositeNode* topNode )
   const float psi2 = bg->get_Psi2();
 
   MatchJets1to1( jets, jetsMC, 0.2 );
+
+  // Handle fake reco jets (reco jets that are not matched to any truth)
+  for (auto recoJet : *jets)
+    {
+      if (!recoJet) continue;
+      
+      const float reco_pt = recoJet->get_pt();
+      if (reco_pt < kRecoJetPtMin || std::fabs(recoJet->get_eta()) > kJetEtaMax)
+	continue;
+      
+      if (recoToTruth.count(recoJet)) continue; // skip matched jets
+      
+      // Get subjets
+      auto particles = BuildPseudoJets(recoJet, towersEM3, towersIH3, towersOH3,
+				       geomEM, geomOH, bg, v2, psi2, false);
+      fastjet::ClusterSequence clustSeq(particles, fastjet::JetDefinition(fastjet::antikt_algorithm, 0.4));
+      auto jetsReco = fastjet::sorted_by_pt(clustSeq.inclusive_jets());
+      if (jetsReco.empty()) continue;
+      
+      fastjet::PseudoJet leading = jetsReco[0];
+      fastjet::ClusterSequence subClust(leading.constituents(), fastjet::JetDefinition(fastjet::antikt_algorithm, 0.1));
+      auto subjets = fastjet::sorted_by_pt(subClust.inclusive_jets());
+      if (subjets.size() < 2) continue;
+      if (subjets[0].pt() < kSubjetPtMin || subjets[1].pt() < kSubjetPtMin) continue;
+      
+      const double reco_zsj = subjets[1].pt() / (subjets[0].pt() + subjets[1].pt());
+      
+      if (m_responseZsj2D)
+	m_responseZsj2D->Fake(reco_zsj, reco_pt);
+      if (hRecoZsj2D)
+	hRecoZsj2D->Fill(reco_zsj, reco_pt);
+    }
+  
   AnalyzeMatchedJets( jets, towersEM3, towersIH3, towersOH3, geomEM, geomOH, bg, v2, psi2, truthInfo );
   AnalyzeTruthJets( jetsMC, truthInfo );
   if( m_T ) m_T->Fill();
@@ -416,6 +510,26 @@ int JetUnfoldingSubjets::End( PHCompositeNode* )
     truth->Write( Form("hTruthZsjMatched_ptbin_%zu", i) );
     if( hResp ) hResp->Write( Form("m_responseZsj_%zu", i) );
   }
+  if (m_responseZsj2D && hRecoZsj2D)
+    {
+      RooUnfoldBayes unfoldZsj2D(m_responseZsj2D.get(), hRecoZsj2D.get(), 4);
+      unfoldZsj2D.SetNToys(0);
+      auto hRaw2D = std::unique_ptr<TH1>(unfoldZsj2D.Hunfold(RooUnfolding::kErrors));
+      //std::unique_ptr<TH2> hRaw2D(unfoldZsj2D.Hunfold(RooUnfolding::kErrors));
+      if (hRaw2D)
+	{
+	  hRaw2D->SetDirectory(nullptr);
+	  hRaw2D->SetName("hRecoZsjUnfolded2D");
+	  hRaw2D->Write();
+	  hRecoZsjUnfolded2D.reset(dynamic_cast<TH2F*>(hRaw2D.release()));
+	}
+    }
+  
+  // Write inputs
+  if (hRecoZsj2D) hRecoZsj2D->Write();
+  if (hTruthZsj2D) hTruthZsj2D->Write();
+  if (m_responseZsj2D && m_responseZsj2D->Hresponse())
+    m_responseZsj2D->Hresponse()->Write();
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
