@@ -1,34 +1,37 @@
 AUTOMAKE_OPTIONS = foreign
 
-lib_LTLIBRARIES = \
-  libSpinDBQA.la
-
 AM_CPPFLAGS = \
   -I$(includedir) \
   -isystem$(OFFLINE_MAIN)/include \
-  -isystem`root-config --incdir`
+  -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
   -L$(OFFLINE_MAIN)/lib \
-  -L$(OFFLINE_MAIN)/lib64 \
-  `root-config --libs`
+  -L$(OFFLINE_MAIN)/lib64
 
-include_HEADERS = \
-  SpinDBQA.h
+pkginclude_HEADERS = \
+  SiliconSeedsAna.h 
 
-libSpinDBQA_la_SOURCES = \
-  SpinDBQA.cc
+lib_LTLIBRARIES = \
+  libsiliconseedsana.la
 
-libSpinDBQA_la_LIBADD = \
-  -L$(OPT_SPHENIX)/lib \
-  -luspin
+libsiliconseedsana_la_SOURCES = \
+  SiliconSeedsAna.cc 
 
-libSpinDBQA_la_LDFLAGS = \
-  -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib \
-  `root-config --libs`
-
+libsiliconseedsana_la_LIBADD = \
+  -lphool \
+  -lSubsysReco \
+  -lg4tpc \
+  -lg4intt \
+  -lg4mvtx \
+  -lmicromegas_io \
+  -lmvtx_io \
+  -lintt_io \
+  -ltrack_io \
+  -ltrackbase_historic_io \
+  -ltrack_reco \
+  -lqautils
 
 BUILT_SOURCES = testexternals.cc
 
@@ -36,7 +39,7 @@ noinst_PROGRAMS = \
   testexternals
 
 testexternals_SOURCES = testexternals.cc
-testexternals_LDADD   = libSpinDBQA.la
+testexternals_LDADD   = libsiliconseedsana.la
 
 testexternals.cc:
 	echo "//*** this is a generated file. Do not commit, do not edit" > $@
