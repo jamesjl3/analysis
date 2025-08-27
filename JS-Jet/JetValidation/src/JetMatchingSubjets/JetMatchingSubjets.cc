@@ -53,14 +53,14 @@ int JetMatchingSubjets::Init(PHCompositeNode*)
   
   PHTFileServer::get().open(m_outputFileName, "RECREATE");
   
-  // Exact pT binning you wanted is already in m_ptEdges (size = m_nPtBins+1)
+
   hRecoPt  = new TH1D("hRecoPt",  "Reco jet pT; p_{T} [GeV]; entries",
                       m_nPtBins, m_ptEdges.data());
   //std::cout << __LINE__ << std::endl;
   hTruthPt = new TH1D("hTruthPt", "Truth jet pT; p_{T} [GeV]; entries",
                       m_nPtBins, m_ptEdges.data());
   //std::cout << __LINE__ << std::endl;
-  // keep in memory only; we’ll write explicitly in End()
+
   hRecoPt->SetDirectory(nullptr);
   //std::cout << __LINE__ << std::endl;
   hTruthPt->SetDirectory(nullptr);
@@ -74,7 +74,7 @@ int JetMatchingSubjets::Init(PHCompositeNode*)
   
   respPt = new RooUnfoldResponse(hRecoPt, hTruthPt, hRespTempl, "respPt", "RooUnfold pt response");
   std::cout << __LINE__ << std::endl;
-  // Construct response from *persistent* hist pointers
+
   //respPt = new RooUnfoldResponse(hRecoPt, hTruthPt, "respPt", "RooUnfold pt response");
   
   // Flattened (pT × z_sj)
@@ -234,7 +234,7 @@ int JetMatchingSubjets::process_event(PHCompositeNode* topNode)
     Jet* t = kv.second;
 
     const float dr = DeltaR(r,t);
-    // right before you do respPt->Fill(...)
+    
     if (!respPt || !hRecoPt || !hTruthPt) {
       std::cerr << "RooUnfold objects not initialized!\n";
       return Fun4AllReturnCodes::ABORTEVENT;
