@@ -11,7 +11,7 @@
 #include <phool/recoConsts.h>
 #include <g4centrality/PHG4CentralityReco.h>
 #include "../HIJetReco.C"
-#include "../../src/JetMatchingSubjets.h"
+#include "../../src/JetMatchingSubjets/JetMatchingSubjets.h"
 #include <jetbackground/TowerRhov1.h>
 #include <jetbackground/DetermineTowerRho.h>
 #include <towerrhoana/TowerRhoAna.h>
@@ -24,7 +24,7 @@
 #include <jetbase/TowerJetInput.h>
 #include <g4jets/TruthJetInput.h>
 #include <jetbase/FastJetAlgo.h>
-
+#include <jetbase/JetCalib.h>
 
 R__LOAD_LIBRARY(libfun4all.so)
 R__LOAD_LIBRARY(libg4jets.so)
@@ -35,41 +35,24 @@ R__LOAD_LIBRARY(libg4dst.so)
 R__LOAD_LIBRARY(libTowerRhoAna.so)
 R__LOAD_LIBRARY(libCaloEmbedding.so)
 gSystem->Load("/sphenix/user/jamesj3j3/sPHENIX/install/lib/libcalo_reco.so");
-//R__LOAD_LIBRARY(libcalo_reco.so)
 R__LOAD_LIBRARY(libJetBkgdSub.so)
 
-//R__LOAD_LIBRARY(libtrackbase_historic.so)
-//gSystem->Load("/sphenix/user/jamesj3j3/sPHENIX/install/lib/libtrackbase_historic.so")
-//gSystem->ProcessLine(".L /sphenix/user/jamesj3j3/sPHENIX/install/lib/libJetValidation.so")
 std::cout << "ROOT Dynamic Path: " << gSystem->GetDynamicPath() << std::endl;
 
 #endif
-/*
-void Fun4All_JetMatchingSubjets(const char *filelisttruth = "dst_truth_jet.list",
-			   const char *filelistcalo = "dst_calo_cluster.list",
-			   const char *filelistglobal = "dst_global.list",
-			   const char *filelisttruthg4hit = "dst_truth.list",
-			   const char *outname = "outputest_jetcorrection.root")
-{*/
-gSystem->mkdir("/sphenix/tg/tg01/jets/jamesj3j3/JetMatchingSubjets/", true);
+
+//gSystem->mkdir("/sphenix/tg/tg01/jets/jamesj3j3/JetMatchingSubjets/", true);
 
 void Fun4All_JetMatchingSubjets(const char *filelisttruth = "dst_truth_jet.list",
                            const char *filelistcalo = "dst_calo_cluster.list",
                            const char *filelistglobal = "dst_global.list",
                            const char *filelisttruthg4hit = "g4hits.list",
-                           const char *outname = "outputest_jetcorrection.root",
-                           int start_event = 0, int end_event = 10000)
+                           const char *outname = "outputest_JetMatchingSubjets.root")
 {
-  //std::string updated_outname = std::string(outname) + "_event" + std::to_string(start_event) + ".root";
-  std::string base = std::string(outname);
-  if (base.find(".root") != std::string::npos)
-    base = base.substr(0, base.find(".root"));
-  std::string updated_outname = base + "_event" + std::to_string(start_event) + ".root";
-
 
   std::string jetNode = "AntiKt_Tower_r04_Sub1";
   Fun4AllServer *se = Fun4AllServer::instance();
-  int verbosity = 0;
+  int verbosity = 1;
   
   se->Verbosity(verbosity);
   recoConsts *rc = recoConsts::instance();
@@ -80,41 +63,53 @@ void Fun4All_JetMatchingSubjets(const char *filelisttruth = "dst_truth_jet.list"
   se->registerSubsystem( cent );
   Enable::VERBOSITY = verbosity;
   
-  JetMatchingSubjets *myJetUnf = new JetMatchingSubjets("AntiKt_Tower_r04_Sub1", "AntiKt_Truth_r04", updated_outname.c_str());  
-   HIJetReco();
-  
+  JetMatchingSubjets *myJetUnf = new JetMatchingSubjets("AntiKt_Tower_r04_Sub1_Calib", "AntiKt_Truth_r04", outname);  
 
-  myJetUnf->setPtRange(1, 100);
-  myJetUnf->setEtaRange(-1.1, 1.1);
-  //  myJetUnf->doUnsub(1);
-  myJetUnf->doTruth(1);
+  myJetUnf->setEtaRange(-0.7, 0.7);
+  myJetUnf->setRecoPtMin(5.0);
+  myJetUnf->setTruthPtMin(10.0);
+  myJetUnf->setMatchDRMax(0.2);
+  myJetUnf->setPtBinning({5,10,15,20,25,30,35,40,45,50,55});
+
+  myJetUnf->setZsjBinning({0.00,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50});
+  HIJetReco();
+  
+  recoConsts::instance()->set_StringFlag("CDB_GLOBALTAG", "MDC2");
+  
+  JetCalib* jetcalib = new JetCalib("JetCalib");
+  jetcalib->set_InputNode("AntiKt_Tower_r04_Sub1");        // Uncalibrated jets                                                                                                                       
+  jetcalib->set_OutputNode("AntiKt_Tower_r04_Sub1_Calib"); // Calibrated jets                                                                                                                         
+  jetcalib->set_JetRadius(0.4);
+  jetcalib->set_ZvrtxNode("GlobalVertexMap");
+  jetcalib->set_ApplyEtaDependentCalib(true);
+  jetcalib->set_ApplyZvrtxDependentCalib(true);
+  jetcalib->Verbosity(0);
+
+  se->registerSubsystem(jetcalib);
+   
+ //  myJetUnf->doUnsub(1);
   //  myJetUnf->doSeeds(0);
   //   myJetUnf->set_doSim(false);
   //  myJetUnf->doClusters(0);
   se->registerSubsystem(myJetUnf);
-  //We need to remove all DST inputs other than DSTcalo for data
 
   Fun4AllInputManager *intrue = new Fun4AllDstInputManager("DSTtruth");
-  intrue->AddFile(filelisttruth);
+  intrue->AddListFile(filelisttruth);
   se->registerInputManager(intrue);
 
   Fun4AllInputManager *in4 = new Fun4AllDstInputManager("DSTg4hit");
-  in4->AddFile(filelisttruthg4hit);
+  in4->AddListFile(filelisttruthg4hit);
   se->registerInputManager(in4);
 
   Fun4AllInputManager *in2 = new Fun4AllDstInputManager("DSTcalo");
-  in2->AddFile(filelistcalo);
+  in2->AddListFile(filelistcalo);
   se->registerInputManager(in2);
 
   Fun4AllInputManager *in3 = new Fun4AllDstInputManager("DSTglobal");
-  in3->AddFile(filelistglobal);
+  in3->AddListFile(filelistglobal);
   se->registerInputManager(in3);
-  //  se->run(100);
-  se->skip(start_event); // Skip events before start_event
-  se->run(end_event - start_event);
+  se->run(3);
   se->End();
-
-  gSystem->Exit(0);
+  //  gSystem->Exit(0);
   return;
-
 }
