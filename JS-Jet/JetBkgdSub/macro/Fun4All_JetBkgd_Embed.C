@@ -48,7 +48,8 @@ void Fun4All_JetBkgd_Embed(
   const char *filelistdata = "dst_data.list",
   const char *filelistsim = "dst_sim.list",
   const char * output = "output",
-  const double jet_parameter = 0.4
+  const double jet_parameter = 0.4,
+  const double threshold = 0.05
 )
 {
 
@@ -167,14 +168,15 @@ void Fun4All_JetBkgd_Embed(
   myJetTree->doData(true);
   myJetTree->doEmbed(false);
   myJetTree->doTowerECut(true);
-  myJetTree->setTowerThreshold(0.05);
+  myJetTree->setTowerThreshold(threshold);
   myJetTree->setMinRecoPt(5.0); // only sets range for reco jets
   myJetTree->setEtaRange(etamin, etamax);
   myJetTree->setPtRange(10, 100); // only sets range for truth jets
   myJetTree->Verbosity(verbosity);
   se->registerSubsystem(myJetTree);
 
-
+  
+  /*
   //embed
   JetBkgdSub *myJetTreeEmbed = new JetBkgdSub(jet_parameter,outputbase + "_embed.root");
   if(doCEMC) myJetTreeEmbed->add_input(new TowerJetInput(Jet::CEMC_TOWERINFO_EMBED));
@@ -187,7 +189,7 @@ void Fun4All_JetBkgd_Embed(
   myJetTreeEmbed->doData(true);
   myJetTreeEmbed->doEmbed(true);
   myJetTreeEmbed->doTowerECut(true);
-  myJetTreeEmbed->setTowerThreshold(0.05);
+  myJetTreeEmbed->setTowerThreshold(threshold);
   myJetTreeEmbed->setMinRecoPt(5.0); // only sets range for reco jets
   myJetTreeEmbed->setEtaRange(etamin, etamax);
   myJetTreeEmbed->setPtRange(10, 100); // only sets range for truth jets
@@ -206,12 +208,13 @@ void Fun4All_JetBkgd_Embed(
   myJetTreeSim->doData(false);
   myJetTreeSim->doEmbed(false);
   myJetTreeSim->doTowerECut(true);
-  myJetTreeSim->setTowerThreshold(0.05);
+  myJetTreeSim->setTowerThreshold(0.0);
   myJetTreeSim->setMinRecoPt(5.0); // only sets range for reco jets
   myJetTreeSim->setEtaRange(etamin, etamax);
   myJetTreeSim->setPtRange(10, 100); // only sets range for truth jets
   myJetTreeSim->Verbosity(verbosity);
   se->registerSubsystem(myJetTreeSim);
+  */
 
   //-----------------------------------
   // Input managers
@@ -231,7 +234,7 @@ void Fun4All_JetBkgd_Embed(
   // Run the analysis
   //-----------------------------------
   
-  se->run(100);
+  se->run(-1);
   se->End();
 
   gSystem->Exit(0);

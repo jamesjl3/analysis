@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include
+  -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
@@ -11,13 +11,15 @@ AM_LDFLAGS = \
   -L$(OFFLINE_MAIN)/lib64
 
 pkginclude_HEADERS = \
-  TracksInJets.h
+  TracksInJets.h \
+  StructureinJets.h
 
 lib_LTLIBRARIES = \
   libTracksInJets.la
 
 libTracksInJets_la_SOURCES = \
-  TracksInJets.cc
+  TracksInJets.cc \
+  StructureinJets.cc
 
 libTracksInJets_la_LIBADD = \
   -lphool \
@@ -25,7 +27,6 @@ libTracksInJets_la_LIBADD = \
   -lfun4all \
   -lg4dst \
   -lg4eval \
-  -lg4jets_io \
   -lg4jets
 
 BUILT_SOURCES = testexternals.cc

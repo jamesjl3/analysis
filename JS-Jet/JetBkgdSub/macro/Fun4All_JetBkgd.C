@@ -127,7 +127,7 @@ void Fun4All_JetBkgd(
   // Run the analysis
   //-----------------------------------
   
-  se->run(10);
+  se->run(-1);
   se->End();
 
   gSystem->Exit(0);

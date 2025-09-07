@@ -9,7 +9,6 @@
 #include <caloreco/CaloTowerCalib.h>
 #include <caloreco/CaloWaveformProcessing.h>
 
-
 #include <calowaveformsim/CaloWaveformSim.h>
 
 #include <ffamodules/CDBInterface.h>
@@ -27,8 +26,8 @@
 #include <phool/recoConsts.h>
 
 #include <calotrigger/CaloTriggerEmulator.h>
-#include <calovalid/TriggerValid.h>
-#include <CaloEmulatorTreeMaker.h>
+#include <calowaveformsim/CaloEmulatorTreeMaker.h>
+
 R__LOAD_LIBRARY(libfun4all.so)
 R__LOAD_LIBRARY(libfun4allraw.so)
 R__LOAD_LIBRARY(libCaloWaveformSim.so)
@@ -40,11 +39,10 @@ R__LOAD_LIBRARY(libemulatortreemaker.so)
 #endif
 
 void Fun4All_Sim_Emulator(
-    const int nEvents = 100,
-    const string &inputFile0 = "g4hits_12.list",
-    const string &inputFile1 = "dst_calo_cluster_12.list",
-    const string &inputFile2 = "/sphenix/user/shuhangli/noisetree/macro/condor31/OutDir0/pedestalhg.root",
-    //const string &inputFile2 = "pedestal.root",
+    const int nEvents = 100000,
+    const string &inputFile0 = "g4hits.list",
+    const string &inputFile1 = "dst_calo_cluster.list",
+    const string &inputFile2 = "pedestal.root",
 
     const string &outputFile = "DST_CALO_WAVEFORM_pp-0000000011-00000.root",
     const string &outdir = ".",
@@ -52,7 +50,7 @@ void Fun4All_Sim_Emulator(
 {
 
   Fun4AllServer *se = Fun4AllServer::instance();
-  se->Verbosity(1);
+  se->Verbosity(0);
 
   recoConsts *rc = recoConsts::instance();
 
@@ -66,25 +64,16 @@ void Fun4All_Sim_Emulator(
   //===============
   // verbosity setting (applies to all input managers)
   Input::VERBOSITY = 1;
-  // First enable the input generators
-  // Either:
-  // read previously generated g4-hits files, in this case it opens a DST and skips
-  // the simulations step completely. The G4Setup macro is only loaded to get information
-  // about the number of layers used for the cell reco code
-  Input::READHITS = true;
 
-  //INPUTREADHITS::filename[0] = inputFile0;
-  //INPUTREADHITS::filename[1] = inputFile1;
+  Input::READHITS = true;
 
   INPUTREADHITS::listfile[0] = inputFile0;
   INPUTREADHITS::listfile[1] = inputFile1;
 
   InputInit();
 
-  // register all input generators with Fun4All
   InputRegister();
 
-// register the flag handling
   FlagHandler *flag = new FlagHandler();
   se->registerSubsystem(flag);
 
@@ -102,7 +91,7 @@ void Fun4All_Sim_Emulator(
   caloWaveformSim->set_highgain(false);
   caloWaveformSim->set_timewidth(0.2);
   caloWaveformSim->set_peakpos(6);
-  //caloWaveformSim->set_noise_type(CaloWaveformSim::NOISE_NONE);
+  caloWaveformSim->set_noise_type(CaloWaveformSim::NOISE_NONE);
   se->registerSubsystem(caloWaveformSim);
 
   caloWaveformSim= new CaloWaveformSim();
@@ -112,16 +101,17 @@ void Fun4All_Sim_Emulator(
   caloWaveformSim->set_highgain(false);
   caloWaveformSim->set_timewidth(0.2);
   caloWaveformSim->set_peakpos(6);
-  //caloWaveformSim->set_noise_type(CaloWaveformSim::NOISE_NONE);
+  caloWaveformSim->set_noise_type(CaloWaveformSim::NOISE_NONE);
   se->registerSubsystem(caloWaveformSim);
 
   caloWaveformSim= new CaloWaveformSim();
   caloWaveformSim->set_detector_type(CaloTowerDefs::CEMC);
   caloWaveformSim->set_detector("CEMC");
   caloWaveformSim->set_nsamples(16);
-  caloWaveformSim->set_highgain(true);
+  caloWaveformSim->set_highgain(false);
   caloWaveformSim->set_timewidth(0.2);
   caloWaveformSim->set_peakpos(6);
+  caloWaveformSim->set_noise_type(CaloWaveformSim::NOISE_NONE);
   caloWaveformSim->set_calibName("cemc_pi0_twrSlope_v1_default");
   se->registerSubsystem(caloWaveformSim);
   
@@ -129,7 +119,7 @@ void Fun4All_Sim_Emulator(
   ca2->set_detector_type(CaloTowerDefs::HCALOUT);
   ca2->set_nsamples(16);
   ca2->set_dataflag(false);
-  ca2->set_processing_type(CaloWaveformProcessing::TEMPLATE);
+  ca2->set_processing_type(CaloWaveformProcessing::FAST);
   ca2->set_builder_type(CaloTowerDefs::kWaveformTowerv2);
   se->registerSubsystem(ca2);
 
@@ -137,7 +127,7 @@ void Fun4All_Sim_Emulator(
   ca2->set_detector_type(CaloTowerDefs::HCALIN);
   ca2->set_nsamples(16);
   ca2->set_dataflag(false);
-  ca2->set_processing_type(CaloWaveformProcessing::TEMPLATE);
+  ca2->set_processing_type(CaloWaveformProcessing::FAST);
   ca2->set_builder_type(CaloTowerDefs::kWaveformTowerv2);
   se->registerSubsystem(ca2);
 
@@ -145,13 +135,9 @@ void Fun4All_Sim_Emulator(
   ca2->set_detector_type(CaloTowerDefs::CEMC);
   ca2->set_nsamples(16);
   ca2->set_dataflag(false);
-  ca2->set_processing_type(CaloWaveformProcessing::TEMPLATE);
+  ca2->set_processing_type(CaloWaveformProcessing::FAST);
   ca2->set_builder_type(CaloTowerDefs::kWaveformTowerv2);
-  //  ca2->set_softwarezerosuppression(true, 300);
   se->registerSubsystem(ca2);
-
-
-  //tower calib
 
   CaloTowerCalib *calib = new CaloTowerCalib();
   calib->set_detector_type(CaloTowerDefs::HCALOUT);
@@ -172,31 +158,23 @@ void Fun4All_Sim_Emulator(
   te->setTriggerType("JET");
   te->setNSamples(16);
   te->setTriggerSample(6);
-  // subrtraction delay of the post and pre sample
   te->setTriggerDelay(4);
   te->Verbosity(0);
   te->setThreshold(1, 4, 6, 8);
-  te->setEmcalLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/emcal_ll1_lut.root");
-  te->setHcalinLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/hcalin_ll1_lut.root");
-  te->setHcaloutLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/hcalout_ll1_lut.root");
+//  te->setEmcalLUTFile("/sphenix/user/hanpuj/Jettrigger/calotriggeremulator/macros/emcal_lut.root");
+//  te->setHcalinLUTFile("/sphenix/user/hanpuj/Jettrigger/calotriggeremulator/macros/ihcal_lut.root");
+//  te->setHcaloutLUTFile("/sphenix/user/hanpuj/Jettrigger/calotriggeremulator/macros/ohcal_lut.root");
+  te->setEmcalLUTFile("/sphenix/user/hanpuj/Jettrigger/lut/emcal_ll1_lut.root");
+  te->setHcalinLUTFile("/sphenix/user/hanpuj/Jettrigger/lut/hcalin_ll1_lut.root");
+  te->setHcaloutLUTFile("/sphenix/user/hanpuj/Jettrigger/lut/hcalout_ll1_lut.root");
   se->registerSubsystem(te);
-
 
   InputManagers();
 
-  Fun4AllInputManager *hitsin = new Fun4AllNoSyncDstInputManager("DST2");
-  hitsin->AddFile(inputFile2);
-  hitsin->Repeat();
-  se->registerInputManager(hitsin);
-
-  CaloEmulatorTreeMaker *tt1 = new CaloEmulatorTreeMaker("CaloEmulatorTreemaker","test1.root");
+  CaloEmulatorTreeMaker *tt1 = new CaloEmulatorTreeMaker("CaloEmulatorTreemaker","30GeVJetTestR04100k.root");
   tt1->UseCaloTowerBuilder(true);
   tt1->Verbosity(0);
   se->registerSubsystem(tt1);
-
-  TriggerValid *tt2 = new TriggerValid("TriggerValidation","test2.root");
-  se->registerSubsystem(tt2);
-
   
   se->run(nEvents);
   CDBInterface::instance()->Print();  // print used DB files

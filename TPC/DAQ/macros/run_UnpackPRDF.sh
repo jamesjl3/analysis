@@ -2,7 +2,7 @@ source /opt/sphenix/core/bin/sphenix_setup.sh -n new
 export MYINSTALL=/sphenix/u/rosstom/install
 source /opt/sphenix/core/bin/setup_local.sh $MYINSTALL
 
-nEvents=10
+nEvents=100
 
 for fileList in $@
 do

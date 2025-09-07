@@ -25,7 +25,7 @@ R__LOAD_LIBRARY(libfun4all.so)
 R__LOAD_LIBRARY(libemulatortreemaker.so)
 #endif
 
-void Fun4All_Calo_Emulator(const int runnumber, int nEvents = 0)
+void Fun4All_Calo_Emulator(const int runnumber = 40934, int nEvents = 1000)
 { 
 
   // example input file
@@ -102,7 +102,7 @@ void Fun4All_Calo_Emulator(const int runnumber, int nEvents = 0)
   // "JET" -- Full Jet algorithm
   // "PHOTON" -- only 8x8 patch photon right now
   // "PAIR" -- not implemented
-  te->setTriggerType("PHOTON");
+  te->setTriggerType("JET");
 
   // need number of calo readout samples
   te->setNSamples(12);
@@ -112,13 +112,13 @@ void Fun4All_Calo_Emulator(const int runnumber, int nEvents = 0)
   // subrtraction delay of the post and pre sample
   te->setTriggerDelay(5);
   te->useEMCAL(true);
-  te->useHCALIN(false);
-  te->useHCALOUT(false);
+  te->useHCALIN(true);
+  te->useHCALOUT(true);
   // If specific thresholds arent set (below, this one is used)
 
   te->setEmcalLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/emcal_ll1_lut.root");
-  //  te->setHcalinLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/hcalin_ll1_lut.root");
-  // te->setHcaloutLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/hcalout_ll1_lut.root");
+  te->setHcalinLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/hcalin_ll1_lut.root");
+  te->setHcaloutLUTFile("/sphenix/user/dlis/Projects/macros/CDBTest/hcalout_ll1_lut.root");
 
   te->setThreshold(1);
   // Threshold for Jet Trigger uses 4 separate ones. (same as the four we have in the real
@@ -137,9 +137,10 @@ void Fun4All_Calo_Emulator(const int runnumber, int nEvents = 0)
 
   char outfile_hist[100];
   sprintf(outfile_hist, "/sphenix/tg/tg01/commissioning/CaloCalibWG/dlis/HIST_TRIGGER_QA-%08d-%04d.root", runnumber, 0);
+  //  sprintf(outfile_hist, "triggertest-%08d-%04d.root", runnumber, 0); 
   string fulloutfile_hist = outfile_hist;
 
-  Fun4AllOutputManager *out = new Fun4AllDstOutputManager("TriggerOut", "/sphenix/tg/tg01/commissioning/CaloCalibWG/dlis/DST_EMULATOR.root");
+  Fun4AllOutputManager *out = new Fun4AllDstOutputManager("TriggerOut", "triggertest.root");
   out->UseFileRule();
   se->registerOutputManager(out);
 

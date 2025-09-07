@@ -1,7 +1,7 @@
 #ifdef __CLING__
 #pragma cling optimize(0)
 #endif
-void Error_Viz()
+void Efficiency26540()
 {
 //=========Macro generated from canvas: Error_Viz/Error_Viz
 //=========  (Tue Sep 19 16:58:10 2023) by ROOT version 6.26/06
@@ -447,7 +447,7 @@ void Error_Viz()
    pl->SetFillColor(0);
    pl->SetTextSize(0.99);
    pl->Draw();
-   
+
    pt = new TPaveText(0.15,0.934955,0.85,0.995,"blNDC");
    pt->SetName("title");
    pt->SetBorderSize(0);
@@ -461,4 +461,5 @@ void Error_Viz()
    Error_Viz->Modified();
    Error_Viz->cd();
    Error_Viz->SetSelected(Error_Viz);
+
 }

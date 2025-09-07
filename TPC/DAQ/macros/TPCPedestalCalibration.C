@@ -21,7 +21,7 @@
 /*        rosstom@ucla.edu,aditya55@physics.ucla.edu         */
 /*************************************************************/
 
-void TPCPedestalCalibration(vector<string> inputFiles = {"/sphenix/user/rosstom/test/testFiles/TPC_ebdc00_pedestal-00010131-0000.prdf_TPCRawDataTree.root"}){
+void TPCPedestalCalibration(vector<string> inputFiles = {"/sphenix/user/jamesj3j3/tpc/sPHENIXProjects/beam-run-24931/TPC_ebdc00_beam-00024931-0000.prdf_TPCRawDataTree_skip100.root"}){
   for (int fileNum = 0; fileNum < inputFiles.size(); fileNum++){
     string sectorNum = inputFiles[fileNum];
     size_t pos = sectorNum.find("ebdc");
