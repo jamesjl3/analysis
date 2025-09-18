@@ -41,7 +41,7 @@ for i in $(seq 0 $((nFile-1))); do
     outfile=/sphenix/tg/tg01/jets/jamesj3j3/JetMatchingSubjets/JetMatching-wJES-$(printf "%04d" $i).root
 
     echo "Universe  = vanilla" > $fname
-    echo "Executable = /sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/RunJetMatchingSubjets.sh" >> $fname
+    echo "Executable = /sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/JetMatSub_Script.sh" >> $fname
     echo "Arguments = ${i} ${outfile}" >> $fname 
 
     echo "Output  = /sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/condor_files/condor_${i}.out" >> $fname

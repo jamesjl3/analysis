@@ -67,33 +67,33 @@ void Fun4All_JetMatchingSubjets(const char *filelisttruth = "dst_truth_jet.list"
   HIJetReco();
   
   recoConsts::instance()->set_StringFlag("CDB_GLOBALTAG", "MDC2");
-  
+  /*  
   JetCalib* jetcalib = new JetCalib("JetCalib");
-  jetcalib->set_InputNode("AntiKt_Tower_r04_Sub1");        // Uncalibrated jets                                                                                                                       
-  jetcalib->set_OutputNode("AntiKt_Tower_r04_Sub1_Calib"); // Calibrated jets                                                                                                                         
+  jetcalib->set_InputNode("AntiKt_Tower_r04_Sub1");        // Uncalibrated jets
+  jetcalib->set_OutputNode("AntiKt_Tower_r04_Sub1_Calib"); // Calibrated jets
   jetcalib->set_JetRadius(0.4);
   jetcalib->set_ZvrtxNode("GlobalVertexMap");
   jetcalib->set_ApplyEtaDependentCalib(true);
   jetcalib->set_ApplyZvrtxDependentCalib(true);
-  jetcalib->Verbosity(0);
-
+  jetcalib->Verbosity(2);
   
-
+*/
   //  myJetUnf->doUnsub(1);
   //  myJetUnf->doSeeds(0);
   //   myJetUnf->set_doSim(false);
-  //  myJetUnf->doClusters(0);
-  JetMatchingSubjets *myJetUnf = new JetMatchingSubjets("AntiKt_Tower_r04_Sub1_Calib", "AntiKt_Truth_r04", outname);  
+  
+  // JetMatchingSubjets *myJetUnf = new JetMatchingSubjets("AntiKt_Tower_r04_Sub1_Calib", "AntiKt_Truth_r04", outname);
+  JetMatchingSubjets *myJetUnf = new JetMatchingSubjets("AntiKt_Tower_r04_Sub1", "AntiKt_Truth_r04", outname);  
   myJetUnf->setRecoConstituentJetNode("AntiKt_Tower_r04_Sub1");
   myJetUnf->setZWindow(-30.f, 30.f);
   myJetUnf->setEtaRange(-0.7, 0.7);
-  myJetUnf->setRecoPtMin(5.0);
-  myJetUnf->setTruthPtMin(10.0);
+  myJetUnf->setRecoPtMin(17.0);
+  myJetUnf->setTruthPtMin(21.0);
   myJetUnf->setMatchDRMax(0.2);
   myJetUnf->setPtBinning({5,10,15,20,25,30,35,40,45,50,55});
   myJetUnf->setZsjBinning({0.00,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50});
-
-  se->registerSubsystem(jetcalib);
+  
+  // se->registerSubsystem(jetcalib);
   se->registerSubsystem(myJetUnf);
 
   Fun4AllInputManager *intrue = new Fun4AllDstInputManager("DSTtruth");

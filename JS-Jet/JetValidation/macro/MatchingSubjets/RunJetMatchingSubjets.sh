@@ -1,62 +1,33 @@
 #!/bin/bash
+set -e
+set -o pipefail
 
-# Setup environment
-export USER="$(id -u -n)"
-export LOGNAME=${USER}
-export HOME=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/
-export LD_LIBRARY_PATH=/sphenix/user/jamesj3j3/sPHENIX/install/lib:$LD_LIBRARY_PATH
-export MYINSTALL=/sphenix/user/jamesj3j3/sPHENIX/install/
+# env (match the release you compiled against)
+export MYINSTALL=/sphenix/user/jamesj3j3/sPHENIX/install
+export LD_LIBRARY_PATH="${MYINSTALL}/lib:${LD_LIBRARY_PATH:-}"
+set +u
+source /opt/sphenix/core/bin/sphenix_setup.sh -n ana.416
+source /opt/sphenix/core/bin/setup_local.sh "${MYINSTALL}"
+set -u
 
-source /opt/sphenix/core/bin/sphenix_setup.sh -n ana.502
-source /opt/sphenix/core/bin/setup_local.sh $MYINSTALL
+# lists + job index
+simList=.../MatchingSubjets/dst_calo_cluster.list
+truthList=.../MatchingSubjets/dst_truth_jet.list
+globalList=.../MatchingSubjets/dst_global.list
+g4List=.../MatchingSubjets/g4hits.list
 
-printenv > env_output.txt
+JOB_INDEX=${1:? "Usage: $0 <job_index> [events_per_job]"}
+EVENTS_PER_JOB=${2:-1000}
+START_EVENT=$(( JOB_INDEX * EVENTS_PER_JOB ))
+END_EVENT=$(( START_EVENT + EVENTS_PER_JOB ))
 
-# Define total events and events per job
-TOTAL_EVENTS=10000000
-EVENTS_PER_JOB=1000 #00  # Adjust as needed
+outdir=/sphenix/tg/tg01/jets/jamesj3j3/JetMatchingSubjets
+mkdir -p "$outdir"
+outfile="${outdir}/JetMatchingJets-w_JES-$(printf "%04d" "$JOB_INDEX").root"
 
-# Get job index from Condor
-JOB_INDEX=$1
-outfile=$2
-echo "JOB_INDEX: $JOB_INDEX"
+# go to macro dir so relative includes work
+MACRO_DIR=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets
+cd "$MACRO_DIR"
 
-# Calculate start and end event number for this job
-START_EVENT=$((JOB_INDEX * EVENTS_PER_JOB))
-END_EVENT=$((START_EVENT + EVENTS_PER_JOB))
-
-outfile=/sphenix/tg/tg01/jets/jamesj3j3/JetMatchingSubjets/JetMatchingSubjets-$(printf "%04d" $JOB_INDEX).root
-#outfile=/sphenix/tg/tg01/jets/jamesj3j3/JetUnfoldingSubjets/JetUnfoldingSubjets-$(printf "%04d" $JOB_INDEX).root
-echo "Generated outfile: $outfile"
-
-# File lists
-simFileList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/dst_calo_cluster.list
-truthList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/dst_truth_jet.list
-globalList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/dst_global.list
-g4hitList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/g4hits.list
-#g4hitList=/sphenix/user/jamesj3j3/analysis/JS-Jet/JetValidation/macro/MatchingSubjets/dst_truth.list
-
-# Get the corresponding files for this job index
-truthFile=$(sed "$((JOB_INDEX + 1))q;d" $truthList)
-echo "Selected truthFile: $truthFile"
-simFile=$(sed "$((JOB_INDEX + 1))q;d" $simFileList)
-globalFile=$(sed "$((JOB_INDEX + 1))q;d" $globalList)
-g4hitFile=$(sed "$((JOB_INDEX + 1))q;d" $g4hitList)
-
-echo "Processing events from $START_EVENT to $END_EVENT"
-echo "truthFile: $truthFile"
-echo "simFile: $simFile"
-echo "globalFile: $globalFile"
-echo "g4hitFile: $g4hitFile"
-echo "outfile: $outfile"
-
-# Run the Fun4All macro with the selected files
-#valgrind
-#gdb --args
-#valgrind --leak-check=full
-#valgrind -s --tool=memcheck --leak-check=full --track-origins=yes --log-file=valgrind_output.txt
-#valgrind --log-file=valgrind_output.txt
-
-root.exe -q -b Fun4All_JetMatchingSubjets.C\(\"$truthFile\",\"$simFile\",\"$globalFile\",\"$g4hitFile\",\"$outfile\",$START_EVENT,$END_EVENT\)
-echo "root.exe -q -b Fun4All_JetUnfoldingSubjets.C\(\"$truthFile\",\"$simFile\",\"$globalFile\",\"$g4hitFile\",\"$outfile\",$START_EVENT,$END_EVENT\)"
-echo "Job $JOB_INDEX completed."
+# **single, simple call**
+root.exe -l -b -q 'Fun4All_JetMatchingSubjets.C("'"$truthList"'", "'"$simList"'", "'"$globalList"'", "'"$g4List"'", "'"$outfile"'", '"$START_EVENT"', '"$END_EVENT"', '"$JOB_INDEX"')'
