@@ -77,7 +77,7 @@ private:
   float      m_vtx_z    = std::numeric_limits<float>::quiet_NaN();
   long long  m_N_in_zwin = 0;
   
-  // configurable z-window
+  // configurable z-window (used only if you want to count inside the module)
   float      m_zmin = -30.f;
   float      m_zmax =  30.f;
   
@@ -98,34 +98,9 @@ private:
   std::vector<float> v_match_truth_pt, v_match_truth_eta, v_match_truth_phi, v_match_truth_zsj, v_match_truth_theta;
   std::vector<float> v_match_dR;
 
-  /*
-  // Per-pt-bin matched RECO z_sj/theta_sj
-  std::vector<float> v_match_reco_zsj_20_25,  v_match_reco_theta_20_25;
-  std::vector<float> v_match_reco_zsj_25_30,  v_match_reco_theta_25_30;
-  std::vector<float> v_match_reco_zsj_60_65,  v_match_reco_theta_60_65;
-  std::vector<float> v_match_reco_zsj_65_70,  v_match_reco_theta_65_70;
-  std::vector<float> v_match_reco_zsj_70_75,  v_match_reco_theta_70_75;
-  std::vector<float> v_match_reco_zsj_75_80,  v_match_reco_theta_75_80;
-  std::vector<float> v_match_reco_zsj_80_85,  v_match_reco_theta_80_85;
-  std::vector<float> v_match_reco_zsj_85_90,  v_match_reco_theta_85_90;
-  */
-
-  /*
-  // Per-pt-bin matched TRUTH z_sj/theta_sj
-  std::vector<float> v_match_truth_zsj_20_25, v_match_truth_theta_20_25;
-  std::vector<float> v_match_truth_zsj_25_30, v_match_truth_theta_25_30;
-  std::vector<float> v_match_truth_zsj_60_65, v_match_truth_theta_60_65;
-  std::vector<float> v_match_truth_zsj_65_70, v_match_truth_theta_65_70;
-  std::vector<float> v_match_truth_zsj_70_75, v_match_truth_theta_70_75;
-  std::vector<float> v_match_truth_zsj_75_80, v_match_truth_theta_75_80;
-  std::vector<float> v_match_truth_zsj_80_85, v_match_truth_theta_80_85;
-  std::vector<float> v_match_truth_zsj_85_90, v_match_truth_theta_85_90;
-  */
   // fakes (reco-only) & misses (truth-only)
   std::vector<float> v_fake_reco_pt, v_fake_reco_eta, v_fake_reco_phi, v_fake_reco_zsj, v_fake_reco_theta;
   std::vector<float> v_fake_truth_pt, v_fake_truth_eta, v_fake_truth_phi, v_fake_truth_zsj, v_fake_truth_theta;
-
-  std::vector<int> v_match_sj, v_match_jet_and_sj; 
 };
 
 #endif

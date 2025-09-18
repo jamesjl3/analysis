@@ -1,6 +1,5 @@
 #include "JetMatchingSubjets.h"
-#include "ZsjTools.h"         // <- Calculates zsj and theta_sj
-#include "SubjetMatching.h"   // <— Matches subjets
+#include "ZsjTools.h"
 
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/PHTFileServer.h>
@@ -27,9 +26,6 @@
 #include <cmath>
 #include <iostream>
 #include <set>
-
-#include <algorithm>  // std::upper_bound
-#include <array>
 
 extern "C" void ZSJ_DebugPrintAndReset();
 namespace {
@@ -84,19 +80,7 @@ int JetMatchingSubjets::Init(PHCompositeNode*)
   m_T->Branch("match_truth_zsj",  &v_match_truth_zsj);
   m_T->Branch("match_truth_theta",&v_match_truth_theta);
   m_T->Branch("match_dR",         &v_match_dR);
-  /*
-  // matched reco subjet observables
-  m_T->Branch("match_reco_zsj_20_25", &v_match_reco_zsj_20_25);
-  m_T->Branch("match_reco_theta_20_25", &v_match_reco_theta_20_25);
-  m_T->Branch("match_reco_zsj_25_30", &v_match_reco_zsj_25_30);
-  m_T->Branch("match_reco_theta_25_30", &v_match_reco_theta_25_30);
 
-  // matched truth subjet observables
-  m_T->Branch("match_truth_zsj_20_25", &v_match_truth_zsj_20_25);
-  m_T->Branch("match_truth_theta_20_25", &v_match_truth_theta_20_25);
-  m_T->Branch("match_truth_zsj_25_30", &v_match_truth_zsj_25_30);
-  m_T->Branch("match_truth_theta_25_30", &v_match_truth_theta_25_30);
-  */
   // fakes & misses
   m_T->Branch("fake_reco_pt",    &v_fake_reco_pt);
   m_T->Branch("fake_reco_eta",   &v_fake_reco_eta);
@@ -109,17 +93,13 @@ int JetMatchingSubjets::Init(PHCompositeNode*)
   m_T->Branch("fake_truth_zsj",   &v_fake_truth_zsj);
   m_T->Branch("fake_truth_theta", &v_fake_truth_theta);
 
-  // SubjetMatching.h
-  m_T->Branch("match_sj", &v_match_sj);
-  m_T->Branch("match_jet_and_sj", &v_match_jet_and_sj);
-  
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
 int JetMatchingSubjets::process_event(PHCompositeNode* topNode)
 {
   ++m_event;
-  
+
   // clear vectors
   v_reco_pt.clear();  v_reco_eta.clear();  v_reco_phi.clear();  v_reco_zsj.clear();  v_reco_theta.clear();
   v_truth_pt.clear(); v_truth_eta.clear(); v_truth_phi.clear(); v_truth_zsj.clear(); v_truth_theta.clear();
@@ -128,43 +108,85 @@ int JetMatchingSubjets::process_event(PHCompositeNode* topNode)
   v_match_dR.clear();
   v_fake_reco_pt.clear(); v_fake_reco_eta.clear(); v_fake_reco_phi.clear(); v_fake_reco_zsj.clear(); v_fake_reco_theta.clear();
   v_fake_truth_pt.clear(); v_fake_truth_eta.clear(); v_fake_truth_phi.clear(); v_fake_truth_zsj.clear(); v_fake_truth_theta.clear();
-  
+
   recoToTruth.clear();
   truthToReco.clear();
-  v_match_sj.clear();
-  v_match_jet_and_sj.clear();
-  
+
   // Fetch nodes
   auto* jetsReco  = findNode::getClass<JetContainer>(topNode, m_recoJetName);
+  // Optional: a raw (uncalibrated) reco container to compute pT scale
+  /*
+  JetContainer* jetsRecoRaw = nullptr;
+  if (!m_recoConstituentJetNode.empty()) {
+    jetsRecoRaw = findNode::getClass<JetContainer>(topNode, m_recoConstituentJetNode);
+  }
+ 
+  auto matchRawJet = [&](Jet* jCal) -> Jet* {
+    if (!jCal || !jetsRecoRaw) return nullptr;
+    
+    const auto wrapPhi = [](double a){ return std::atan2(std::sin(a), std::cos(a)); };
+    
+    const double jeta = jCal->get_eta();
+    const double jphi = wrapPhi(jCal->get_phi());
+    
+    Jet* best = nullptr;
+    double bestDR2 = std::numeric_limits<double>::infinity();
+    
+    // choose a sensible max matching radius
+    const double maxDR   = 0.2;          // tune: 0.1–0.2 usually fine
+    const double maxDR2  = maxDR * maxDR;
+    
+    for (auto* jr : *jetsRecoRaw) {
+      const double deta = jeta - jr->get_eta();
+      const double dphi = wrapPhi(jphi - jr->get_phi());
+      const double dR2  = deta*deta + dphi*dphi;
+      if (dR2 < bestDR2) {
+	bestDR2 = dR2;
+	best    = jr;
+      }
+    }
+    return (best && bestDR2 <= maxDR2) ? best : nullptr;
+  };
+  */
   auto* jetsTruth = findNode::getClass<JetContainer>(topNode, m_truthJetName);
   auto* cent      = findNode::getClass<CentralityInfo>(topNode, "CentralityInfo");
-  
+
   TowerInfoContainer *em = findNode::getClass<TowerInfoContainer>(topNode, "TOWERINFO_CALIB_CEMC_RETOWER");
   TowerInfoContainer *ih = findNode::getClass<TowerInfoContainer>(topNode, "TOWERINFO_CALIB_HCALIN");
   TowerInfoContainer *oh = findNode::getClass<TowerInfoContainer>(topNode, "TOWERINFO_CALIB_HCALOUT");
-  
+
   RawTowerGeomContainer *geomIH = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALIN");
   RawTowerGeomContainer *geomOH = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALOUT");
   RawTowerGeomContainer *geomEM = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_CEMC");
+  /*
+  // Towers: use SUB1
+  auto* em =  findNode::getClass<TowerInfoContainer>(topNode, "TOWERINFO_CALIB_CEMC_RETOWER_SUB1");
+  auto* ih =  findNode::getClass<TowerInfoContainer>(topNode, "TOWERINFO_CALIB_HCALIN_SUB1");
+  auto* oh =  findNode::getClass<TowerInfoContainer>(topNode, "TOWERINFO_CALIB_HCALOUT_SUB1");
   
+  // Geometry 
+  auto* geomIH = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALIN");
+  auto* geomOH = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_HCALOUT");
+  auto* geomEM = findNode::getClass<RawTowerGeomContainer>(topNode, "TOWERGEOM_CEMC");
+  */
   // Background
   auto* bg = findNode::getClass<TowerBackground>(topNode, "TowerInfoBackground_Sub2");
   auto* truthinfo = findNode::getClass<PHG4TruthInfoContainer>(topNode, "G4TruthInfo");
-  
+
   if (!jetsReco || !jetsTruth || !cent || !em || !ih || !oh || !geomEM || !geomIH || !geomOH || !bg || !truthinfo) {
     std::cerr << "[JetMatchingSubjets] Missing node(s)." << std::endl;
     return Fun4AllReturnCodes::ABORTRUN;
   }
-  
+
   m_centrality = cent->get_centile(CentralityInfo::PROP::bimp);
   m_b          = cent->get_quantity(CentralityInfo::PROP::bimp);
-  /*
-    auto wrapPhi = [](double a){
+
+  auto wrapPhi = [](double a){
     while (a >  M_PI) a -= 2*M_PI;
     while (a < -M_PI) a += 2*M_PI;
     return a;
-    };
-  */ 
+  };
+  
   // Reco jets
   for (auto j: *jetsReco) {
     if (j->get_pt() < m_recoPtMin) continue; 
@@ -172,60 +194,59 @@ int JetMatchingSubjets::process_event(PHCompositeNode* topNode)
     
     v_reco_pt.push_back(j->get_pt());
     v_reco_eta.push_back(j->get_eta());
-    v_reco_phi.push_back(j->get_phi());
-    std::cout << __LINE__ << std::endl;
-    auto& v = v_reco_phi;
-    if (v.back() < -M_PI) v.back() += 2*M_PI;
-    if (v.back() >  M_PI) v.back() -= 2*M_PI;
-    std::cout << __LINE__ << std::endl;
+    //v_reco_phi.push_back(j->get_phi());
+    v_reco_phi.push_back(wrapPhi(j->get_phi()));
+    /*
+    // Calibration-aware subjet pT threshold: scale = pT_calib / pT_raw
+    double ptScaleForCuts = 1.0;
+    if (Jet* jRaw = matchRawJet(j)) {
+      const double pr = jRaw->get_pt(), pc = j->get_pt();
+      if (pr > 0.0 && std::isfinite(pr) && std::isfinite(pc)) ptScaleForCuts = pc / pr;
+    }
+    */
     double z = std::numeric_limits<double>::quiet_NaN();
     double th = std::numeric_limits<double>::quiet_NaN();
-    std::cout << __LINE__ << std::endl;
+
     const bool ok = ComputeZsjForJet(j,
-				     em, ih, oh, geomEM, geomIH, geomOH, bg,
-				     /*v2=*/0.f, /*psi2=*/0.f, /*doUnsub=*/false,
-				     /*etaCalMax=*/1.1, /*R_jet=*/0.4,
-				     /*z_cut=*/0.0, /*beta=*/0.0, /*pt_min_subjet=*/3.0,
-				     th, z);
-    std::cout << __LINE__ << std::endl;
+			   em, ih, oh, geomEM, geomIH, geomOH, bg,
+			   /*v2=*/0.f, /*psi2=*/0.f, /*doUnsub=*/false,
+			   /*etaCalMax=*/0.6, /*R_jet=*/0.4,
+			   /*z_cut=*/0.0, /*beta=*/0.0, /*pt_min_subjet=*/0.0,
+			   th, z);
+    
     v_reco_zsj.push_back(ok ? z  : std::numeric_limits<double>::quiet_NaN());
     v_reco_theta.push_back(ok ? th : std::numeric_limits<double>::quiet_NaN());
-    std::cout << __LINE__ << std::endl;
+    
   }
   
   // Truth jets
   for (auto j: *jetsTruth) {
     if (j->get_pt() < m_truthPtMin) continue;
     if (std::abs(j->get_eta()) > m_etaRange.second) continue;
-    std::cout << __LINE__ << std::endl;
+    
     v_truth_pt.push_back(j->get_pt());
     v_truth_eta.push_back(j->get_eta());
-    v_truth_phi.push_back(j->get_phi());
-    std::cout << __LINE__ << std::endl;
-    auto& v = v_truth_phi;
-    if (v.back() < -M_PI) v.back() += 2*M_PI;
-    if (v.back() >  M_PI) v.back() -= 2*M_PI;
-    std::cout << __LINE__ << std::endl;
+    v_truth_phi.push_back(wrapPhi(j->get_phi()));
+    
     double z, th;
-    std::cout << __LINE__ << std::endl;
-    if (ComputeZsjForTruthJet(j, truthinfo, 0.4, 1.1, z, th)) {
+   
+    if (ComputeZsjForTruthJet(j, truthinfo, 0.4, 0.6, z, th)) {
       v_truth_zsj.push_back(z);
       v_truth_theta.push_back(th);
-      std::cout << __LINE__ << std::endl;
     } else {
       v_truth_zsj.push_back(NAN);
       v_truth_theta.push_back(NAN);
     }
   }
-  std::cout << __LINE__ << std::endl;
+  
   // Matching
   MatchJets1to1(jetsReco, jetsTruth);
   // ---- Fill matched (only keep zsj when BOTH reco & truth have valid subjets) ----
-  for (auto& kv: truthToReco) {
-    Jet* r = kv.second;
-    Jet* t = kv.first;
+  for (auto& kv: recoToTruth) {
+    Jet* r = kv.first;
+    Jet* t = kv.second;
     const float dr = DeltaR(r,t);
-    std::cout << __LINE__ << std::endl;
+    
     // Compute reco subjets (AKT R=0.1, pT>5), acceptance |eta|<0.6
     double zr = std::numeric_limits<double>::quiet_NaN();
     double tr = std::numeric_limits<double>::quiet_NaN();
@@ -233,157 +254,152 @@ int JetMatchingSubjets::process_event(PHCompositeNode* topNode)
 				      r,
 				      em, ih, oh, geomEM, geomIH, geomOH, bg,
 				      /*v2=*/0.f, /*psi2=*/0.f, /*doUnsub=*/false,
-				      /*etaCalMax=*/1.1, /*R_jet=*/0.4,
-				      /*z_cut=*/0.0, /*beta=*/0.0, /*pt_min_subjet=*/3.0,
+				      /*etaCalMax=*/0.6, /*R_jet=*/0.4,
+				      /*z_cut=*/0.0, /*beta=*/0.0, /*pt_min_subjet=*/0.0,
 				      tr, zr);
-    std::cout << __LINE__ << std::endl;
+    
     // Compute truth subjets (AKT R=0.1, pT>5), acceptance |eta|<0.6
     double zt = std::numeric_limits<double>::quiet_NaN();
     double tt = std::numeric_limits<double>::quiet_NaN();
-    std::cout << __LINE__ << std::endl;
     const bool okt = ComputeZsjForTruthJet(
 					   t, truthinfo,
-					   /*R_jet=*/0.4, /*etaCalMax=*/1.1,
+      /*R_jet=*/0.4, /*etaCalMax=*/0.6,
 					   zt, tt);
-    std::cout << __LINE__ << std::endl;
-    /*
-    std::vector<fastjet::PseudoJet> reco_sj, truth_sj;
-    const double SJ_PT_MIN   = 3;   // analysis choice; keep angular-only matching policy
-    const double SJ_DR_MAX   = 0.12;  //  subjet ΔR
-    std::cout << __LINE__ << std::endl;
-    bool haveRecoSJ  = BuildRecoSubjetsForJet(r, em, ih, oh, geomEM, geomIH, geomOH,
-					      bg, 1.1, 0.4,
-					      SJ_PT_MIN, reco_sj);
-    bool haveTruthSJ = BuildTruthSubjetsForJet(t, truthinfo,
-					       0.4, 1.1,
-					       SJ_PT_MIN, truth_sj);
-    std::cout << __LINE__ << std::endl;
-    // 3) require BOTH sides to have ≥2 subjets and pass greedy matching
-    bool subjet_gate = false;
-    if (haveRecoSJ && haveTruthSJ) {
-      auto sjres = MatchTruthTwoToRecoMany_Greedy(truth_sj, reco_sj, SJ_DR_MAX);
-      subjet_gate = sjres.matched;
-    }
-    std::cout << __LINE__ << std::endl;
-    v_match_sj.push_back(subjet_gate ? 1 : 0);
-    v_match_jet_and_sj.push_back((subjet_gate) ? 1 : 0);
-*/
-    std::cout << __LINE__ << std::endl;
+    
     // Only store as "matched" if BOTH are valid
-    if (okr && okt /* && subjet_gate*/) {
+    if (okr && okt) {
       v_match_reco_pt.push_back(r->get_pt());
       v_match_reco_eta.push_back(r->get_eta());
-      v_match_reco_phi.push_back(r->get_phi());
-      std::cout << __LINE__ << std::endl;
-      auto& v = v_match_reco_phi;
-      if (v.back() < -M_PI) v.back() += 2*M_PI;
-      if (v.back() >  M_PI) v.back() -= 2*M_PI;
-      std::cout << __LINE__ << std::endl;
+      v_match_reco_phi.push_back(wrapPhi(r->get_phi()));
       v_match_reco_zsj.push_back(zr);
       v_match_reco_theta.push_back(tr);
       
       v_match_truth_pt.push_back(t->get_pt());
       v_match_truth_eta.push_back(t->get_eta());
-      v_match_truth_phi.push_back(t->get_phi());
-      std::cout << __LINE__ << std::endl;
-      auto& b = v_match_truth_phi;
-      if (b.back() < -M_PI) b.back() += 2*M_PI;
-      if (b.back() >  M_PI) b.back() -= 2*M_PI;
-      std::cout << __LINE__ << std::endl;
+      v_match_truth_phi.push_back(wrapPhi(t->get_phi()));
       v_match_truth_zsj.push_back(zt);
       v_match_truth_theta.push_back(tt);
       
       v_match_dR.push_back(dr);
-      std::cout << __LINE__ << std::endl;
     } else {
       // Route partial/failed subjet cases to fakes
       if (okr) {
 	v_fake_reco_pt.push_back(r->get_pt());
 	v_fake_reco_eta.push_back(r->get_eta());
-	v_fake_reco_phi.push_back(r->get_phi());
-	std::cout << __LINE__ << std::endl;
-	auto& v = v_fake_reco_phi;
-	if (v.back() < -M_PI) v.back() += 2*M_PI;
-	if (v.back() >  M_PI) v.back() -= 2*M_PI;
-	std::cout << __LINE__ << std::endl;
+	v_fake_reco_phi.push_back(wrapPhi(r->get_phi()));
 	v_fake_reco_zsj.push_back(zr);
 	v_fake_reco_theta.push_back(tr);
       }
-      std::cout << __LINE__ << std::endl;
       if (okt) {
 	v_fake_truth_pt.push_back(t->get_pt());
 	v_fake_truth_eta.push_back(t->get_eta());
-	v_fake_truth_phi.push_back(t->get_phi());
-	std::cout << __LINE__ << std::endl;
-	auto& v = v_fake_truth_phi;
-	if (v.back() < -M_PI) v.back() += 2*M_PI;
-	if (v.back() >  M_PI) v.back() -= 2*M_PI;
-	std::cout << __LINE__ << std::endl;
+	v_fake_truth_phi.push_back(wrapPhi(t->get_phi()));
 	v_fake_truth_zsj.push_back(zt);
 	v_fake_truth_theta.push_back(tt);
       }
-      // If neither side had valid subjets, nothing goes to "matched".
-      // Get a record of these via the fake_* entries above only if one side succeeded.
+      // If neither side had valid subjets (your case 3), nothing goes to "matched".
+      // You still get a record of these via the fake_* entries above only if one side succeeded.
       // If neither succeeded here, they simply won't appear in match_* nor fake_* (both invalid).
     }
   }
+/*
+  // Fill matched
+  for (auto& kv: recoToTruth) {
+    Jet* r = kv.first;
+    Jet* t = kv.second;
+    const float dr = DeltaR(r,t);
+
+    v_match_reco_pt.push_back(r->get_pt());
+    v_match_reco_eta.push_back(r->get_eta());
+    v_match_reco_phi.push_back(wrapPhi(r->get_phi()));
+    v_match_truth_pt.push_back(t->get_pt());
+    v_match_truth_eta.push_back(t->get_eta());
+    v_match_truth_phi.push_back(wrapPhi(t->get_phi()));  
+    v_match_dR.push_back(dr);
+    
+    //double ptScaleForCuts = 1.0;
+    //if (Jet* rRaw = matchRawJet(r)) {
+     // const double pr = rRaw->get_pt(), pc = r->get_pt();
+      //if (pr > 0.0 && std::isfinite(pr) && std::isfinite(pc)) ptScaleForCuts = pc / pr;
+    //}
+    
+    std::cout << "            in matching reco               " << std::endl;
+    // Reco z/theta (always push; NaN if it fails)
+    double zr = std::numeric_limits<double>::quiet_NaN();
+    double tr = std::numeric_limits<double>::quiet_NaN();
+    (void)ComputeZsjForJet(r,
+			   em, ih, oh, geomEM, geomIH, geomOH, bg,
+			   0.f, 0.f, false,
+			   0.6, 0.4,
+			   0.0, 0.0, 5.0,
+			   tr, zr);
+
+    v_match_reco_zsj.push_back(zr);
+    v_match_reco_theta.push_back(tr);
+
+
+    std::cout << "            in matching truth               " << std::endl;
+    // Truth z/theta (always push; NaN if it fails)
+    double zt = std::numeric_limits<double>::quiet_NaN();
+    double tt = std::numeric_limits<double>::quiet_NaN();
+    (void)ComputeZsjForTruthJet(t, truthinfo,
+				0.4, 0.6,
+				zt, tt);
+    v_match_truth_zsj.push_back(zt);
+    v_match_truth_theta.push_back(tt);
+  }
+  */
   // Fakes (reco-only, outside matched loop)
   for (auto r: *jetsReco) {
     if (r->get_pt() < m_recoPtMin) continue;
     if (std::abs(r->get_eta()) > m_etaRange.second) continue;
     if (recoToTruth.find(r) != recoToTruth.end()) continue;
-    std::cout << __LINE__ << std::endl;
+    
     v_fake_reco_pt.push_back(r->get_pt());
     v_fake_reco_eta.push_back(r->get_eta());
-    v_fake_reco_phi.push_back(r->get_phi());
-    std::cout << __LINE__ << std::endl;
-    auto& v = v_fake_reco_phi;
-    if (v.back() < -M_PI) v.back() += 2*M_PI;
-    if (v.back() >  M_PI) v.back() -= 2*M_PI;
-    std::cout << __LINE__ << std::endl;
+    v_fake_reco_phi.push_back(wrapPhi(r->get_phi()));
+    /*
+    double ptScaleForCuts = 1.0;
+    if (Jet* rRaw = matchRawJet(r)) {
+      const double pr = rRaw->get_pt(), pc = r->get_pt();
+      if (pr > 0.0 && std::isfinite(pr) && std::isfinite(pc)) ptScaleForCuts = pc / pr;
+    }
+    */
     double zr = std::numeric_limits<double>::quiet_NaN();
     double tr = std::numeric_limits<double>::quiet_NaN();
-    std::cout << __LINE__ << std::endl;
     (void)ComputeZsjForJet(r,
 			   em, ih, oh, geomEM, geomIH, geomOH, bg,
 			   /*v2=*/0.f, /*psi2=*/0.f, /*doUnsub=*/false,
-			   /*etaCalMax=*/1.1, /*R_jet=*/0.4,
-			   /*z_cut=*/0.0, /*beta=*/0.0, /*pt_min_subjet=*/3.0,
+			   /*etaCalMax=*/0.6, /*R_jet=*/0.4,
+			   /*z_cut=*/0.0, /*beta=*/0.0, /*pt_min_subjet=*/0.0,
 			   tr, zr);
     
     v_fake_reco_zsj.push_back(zr);
     v_fake_reco_theta.push_back(tr);
   }
-  std::cout << __LINE__ << std::endl;
+  
   // Misses (truth-only)
   for (auto t: *jetsTruth) {
     if (t->get_pt() < m_truthPtMin) continue;
     if (std::abs(t->get_eta()) > m_etaRange.second) continue;
     if (truthToReco.find(t) != truthToReco.end()) continue;
-    std::cout << __LINE__ << std::endl;
+    
     double zt, tt;
     if (!ComputeZsjForTruthJet(t, truthinfo,
-			       /*R_jet=*/0.4,
-			       /*etaCalMax=*/1.1,
+			  /*R_jet=*/0.4,
+			  /*etaCalMax=*/0.6,
 			       zt, tt)) {
       zt=NAN; tt=NAN;
     }
-    std::cout << __LINE__ << std::endl;
     v_fake_truth_pt.push_back(t->get_pt());
     v_fake_truth_eta.push_back(t->get_eta());
-    v_fake_truth_phi.push_back(t->get_phi());
-    std::cout << __LINE__ << std::endl;
-
-    auto& v = v_truth_phi;
-    if (v.back() < -M_PI) v.back() += 2*M_PI;
-    if (v.back() >  M_PI) v.back() -= 2*M_PI;
-    std::cout << __LINE__ << std::endl;
+    v_fake_truth_phi.push_back(wrapPhi(t->get_phi()));
     v_fake_truth_zsj.push_back(zt);
     v_fake_truth_theta.push_back(tt);
   }
   
   m_T->Fill();
-  
+
   ZSJ_DebugPrintAndReset();
 
   return Fun4AllReturnCodes::EVENT_OK;
@@ -439,10 +455,11 @@ void JetMatchingSubjets::MatchJets1to1(JetContainer* recoJets, JetContainer* tru
   truthToReco.clear();
   for (auto& p: cand) {
     if (usedR.count(p.r) || usedT.count(p.t)) continue;
-    usedT.insert(p.t);
     usedR.insert(p.r);
+    usedT.insert(p.t);
+    recoToTruth[p.r] = p.t;
     truthToReco[p.t] = p.r;
-    recoToTruth[p.r] = p.t;     
+     
   }
 }
 
